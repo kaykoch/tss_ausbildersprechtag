@@ -33,12 +33,8 @@ def create_app(config_object=BaseConfig):
         try:
             logger.info(50 * "_")
 
-            # States setzen (Pfade, app, und Schulformen)
-            state.set_data(
-                app,
-                klassenfile="klassen.csv",
-                pdfcsvfile="pdf.csv",
-            )
+            # States setzen (app)
+            state.set_data(app)
 
             # Wenn die Datenbank nicht existiert, wird sie mit den default Config Werten erstellt
             # state wird als globale Variable in helpies verankert

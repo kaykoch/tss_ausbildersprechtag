@@ -42,9 +42,9 @@ git https://github.com/kaykoch/ausbildersprechtag.git
 
 # Ins INSTALLATIONSVERZEICHNIS wechseln
  cd /var/www/ausbildersprechtag/
- 
+
 # Setup-Programm starten
-python3 setup.py                                
+./setup.sh                                
 ```
 
 ## Programmstart

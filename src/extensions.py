@@ -34,9 +34,10 @@ class AppState:
         self.app: Flask = None
 
         # Pfade zu den verschiedenen Dateien
-        self.datafolder: Path | None = None
-        self.staticfolder: Path | None = None
+        self.datafolder: Path = Path(__file__).resolve().parent / "data/"
+        self.staticfolder: Path = Path(__file__).resolve().parent / "static/"
         self.sprechtag: dataclass | None = None
+        self.logfile = self.__ensure_file_exists(self.datafolder, "logfile.log")
 
     def set_sprechtag(self, tag: str, beginn: str, ende: str):
         self.sprechtag = Sprechtagdata(
@@ -59,8 +60,6 @@ class AppState:
         """
 
         self.app: Flask = app
-        self.datafolder = Path(app.root_path) / "data"
-        self.staticfolder = Path(app.root_path) / "static"
         """
         for attr_name, filename in kwargs.items():
             # Alle übergebenden Werte
