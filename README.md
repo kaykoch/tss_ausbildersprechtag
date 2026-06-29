@@ -38,12 +38,13 @@ cd ~/www # Variante 1 Lokal
 cd /var/www/ # Variante 2 Server
 
 # Herunterladen der App (git )                           
-git https://github.com/kaykoch/ausbildersprechtag.git
+git https://github.com/kaykoch/tss_ausbildersprechtag.git
 
 # Ins INSTALLATIONSVERZEICHNIS wechseln
  cd /var/www/ausbildersprechtag/
 
-# Setup-Programm starten
+# Setup-Programm ausführbar machen und starten
+chmod +x ./setup.sh 
 ./setup.sh                                
 ```
 
@@ -54,13 +55,10 @@ Wenn das Programm zum Testen auf dem lokalen PC gestartet werden soll:
 ```bash 
 source .venv/bin/activate
 ```
- - Die Datei ausführbar machen:
 
+- Programm ausführbar machen und starten:
 ```bash
- chmod +x sprechtag.py 
- ```
-- Programm starten:
-```bash 
+chmod +x sprechtag.py
 ./sprechtag.py
 ```
 
@@ -94,12 +92,7 @@ bzw. für die Administration:  (Login: admin | Password: admin)
 (mit startGunicorn.py) 
 
 Wenn das Programm im produktiven Einsatz laufen, kommt GuniCorn ins Spiel. \
-Hierfür gibt es das Startscript: (Es gilt für die Ausführbarkeit das gleiche wie oben.) 
-Nach dem Anpassungen muss startGunicorn.py ausgeführt werden 
-```bash 
-startGunicorn.py
-```
-
+Hierfür gibt es das Startscript  **startGunicorn.py**, dass angepasst werden kann:
 
 **startGunicorn.py:** \
 Es gibt drei Parameter im script, die man ändern kann:\
@@ -110,19 +103,32 @@ APP_NAME = (
     "sprechtag"  
 )
 # Port auf dem der Server hört
-PORT = "8081"
+PORT = "8083"
 # Anzahl der gestarteten Dienste. Nur interessant bei zu erwartender hoher Last
 WORKERS = 3  
 ```
-Der Aufruf erfolgt im Browser mit: 
-   ```
-  http://<SERVER_URL>:PORT/
-  ``` 
 
-bzw. für die Administration:
-  ```
-http://<SERVER_URL>:PORT//admin
-  ``` 
+Nach dem Anpassungen muss startGunicorn.py ausgeführt werden. 
+
+```bash 
+chmod +x startGunicorn.py
+startGunicorn.py
+```
+Der Aufruf im Browser erfolgt im Browser: 
+ - für die Partner:
+```
+http://<SERVER_URL>:PORT/
+``` 
+
+ - für die Lehrkräfte:
+```
+http://<SERVER_URL>:PORT/tss
+``` 
+
+ - für die Administration:
+```
+http://<SERVER_URL>:PORT/admin
+``` 
 
 ### Server-Variante 2 
 (mit systemd) 
@@ -134,15 +140,15 @@ Linux Befehle handelt
 
 #### Erstellen einer Systemd Startdatei
 Das folgende Startscript setzt folgenden Einstellungen  (Bei Bedarf ändern):
-- **Name der Datei:** /etc/systemd/system/ausbildersprechtag.service
+- **Name der Datei:** ausbildersprechtag.service
 - **INSTALLATIONSVERZEICHNIS:** /var/www/ausbildersprechtag/
 - **LogPfad:** /var/log/gunicorn/
-- **Port:**  8081
+- **Port:**  8083
 
-Erstellen Sie eine Datei /etc/systemd/system/ausbildersprechtag.service mit folgendem, angepasstem Inhalt:
+Erstellen Sie eine Datei **/etc/systemd/system/ausbildersprechtag.service** mit folgendem, evtl.angepasstem Inhalt:
 ```
 [Unit]
-Description=Gunicorn Ausbildersprechtag (8081)
+Description=Gunicorn Ausbildersprechtag (8083)
 After=network.target
 
 [Service]
@@ -160,7 +166,7 @@ Environment="PYTHONUNBUFFERED=1"
 # Gunicorn-Befehl
 ExecStart=/var/www/ausbildersprechtag/.venv/bin/gunicorn \
     --workers 2 \
-    --bind 0.0.0.0:8081 \
+    --bind 0.0.0.0:8083 \
     --log-level info \
     --access-logfile /var/log/gunicorn/sprechtag_access.log \
     --error-logfile /var/log/gunicorn/sprechtag_error.log \
@@ -205,7 +211,7 @@ systemctl status ausbildersprechtag.service
 ```
 Man sollte dann ganz unten Folgendes sehen:
 ```
-systemd[1]: Started ausbildersprechtag.service - Gunicorn Ausbildersprechtag (8081).
+systemd[1]: Started ausbildersprechtag.service - Gunicorn Ausbildersprechtag (8083).
 ```
 #### Zugriff aus dem Internet
 Damit der Dienst aus dem Internet erreicht werden kann, muss der Zugriff eingerichtet werden. Auch das sind Dinge, die nicht
