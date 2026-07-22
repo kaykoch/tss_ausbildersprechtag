@@ -1,3 +1,7 @@
+# ------------------------------------------------------------------------------
+#  FORMULARE
+# ------------------------------------------------------------------------------
+
 from datetime import datetime
 import re
 
@@ -14,65 +18,89 @@ from wtforms import (
     StringField,
     SubmitField,
 )
-from wtforms.validators import DataRequired, Email, Length, NumberRange, Optional, Regexp, ValidationError
+from wtforms.validators import (
+    DataRequired,
+    Email,
+    Length,
+    NumberRange,
+    Optional,
+    Regexp,
+    ValidationError,
+)
 
 
-def normalize_whitespace(value: str) -> str:
-    """Normalisiert Werte, bevor sie in die Datenbank übernommen werden.
+# ------------------------------------------------------------------------------
+# Konstanten
+# ------------------------------------------------------------------------------
 
-    Die Funktion löscht:
-        - Leerzeichen, Tabs, Zeilenumbrüche
+_EMAIL_VALIDATOR = Email(message="Bitte geben Sie eine gültige E-Mail-Adresse ein.")
+_EMAIL_LENGTH = Length(max=100)
+_NAME_LENGTH = Length(max=100)
+_PASSWORD_LENGTH = Length(min=4, max=15)
+_ID_VALIDATORS = [Optional(), Length(max=36), Regexp(r"^\d+$")]
+
+_TIME_PLACEHOLDER = "z.B.: 16:00h"
+
+
+# ------------------------------------------------------------------------------
+# Filter
+# ------------------------------------------------------------------------------
+
+
+def normalize_whitespace(value: str | None) -> str:
+    """Bereinigt einen String: trimmt Ränder und reduziert Leerzeichen auf eines.
 
     Args:
-        value (str): Wert, der bereinigt werden soll
+        value: Eingabewert aus dem Formularfeld.
 
     Returns:
-        str: Bereinigter String
+        Bereinigter String, oder "" wenn der Eingabewert None war.
     """
     if value is None:
         return ""
-    # ensure string
-    s = str(value)
-    # trim ends
-    s = s.strip()
-    # replace any sequence of whitespace (spaces, tabs, newlines) with a single space
-    s = re.sub(r"\s+", " ", s)
-    return s
+    return re.sub(r"\s+", " ", str(value).strip())
 
 
-def validate_time_format(form: FlaskForm, field: Field):
-    """_suValidiert, ob ein gegebener String dem Uhrzeitformat "HH:MM" entspricht.mmary_
+# ------------------------------------------------------------------------------
+# Validatoren
+# ------------------------------------------------------------------------------
+
+
+def validate_time_format(form: FlaskForm, field: Field) -> None:
+    """Validiert, ob ein Feldwert dem Uhrzeitformat HH:MM entspricht.
 
     Args:
-        form (FlaskForm): Flaskform, von der aufgreufen wurde
-        field (Field): flask_feld, das überprüft wird
+        form:  Das aufrufende FlaskForm.
+        field: Das zu prüfende Formularfeld.
 
     Raises:
-        ValidationError: _description_
-
+        ValidationError: Wenn der Wert kein gültiges HH:MM-Format hat.
     """
-
     try:
-        time_string = field.data.strip()
-        datetime.strptime(time_string, "%H:%M")
-    except ValueError as e:  # Den ValueError als 'e' abfangen
+        datetime.strptime(field.data.strip(), "%H:%M")
+    except ValueError as e:
         raise ValidationError(
-            f"'{field.label.text}' enthält keine Uhrzeit. Bitte prüfe das Format: (z.B.: 12:00)."
-        ) from e  # 'from e' hinzufügen
+            f"'{field.label.text}' enthält keine Uhrzeit. Bitte prüfe das Format (z. B.: 12:00)."
+        ) from e
 
 
 # ------------------------------------------------------------------------------
-# Config
+# Formulare
 # ------------------------------------------------------------------------------
+
+
 class ConfigForm(FlaskForm):
-    # Admin
-    admin_login = StringField("Admin Login", validators=[Optional(), Length(min=4, max=15)])
-    admin_password = PasswordField("Admin Passwort", validators=[Optional(), Length(min=4, max=15)])
-    # TSS-Lehrkräfte
-    tss_login = StringField("Lehrkraft Login", validators=[Optional(), Length(min=4, max=15)])
-    tss_password = PasswordField("Lehrkraft Passwort", validators=[Optional(), Length(min=4, max=15)])
+    """Konfigurationsformular für Admin-, Lehrkraft-, Mail- und Sprechtag-Einstellungen."""
 
-    # Mail
+    # Admin-Zugangsdaten
+    admin_login = StringField("Admin Login", validators=[Optional(), _PASSWORD_LENGTH])
+    admin_password = PasswordField("Admin Passwort", validators=[Optional(), _PASSWORD_LENGTH])
+
+    # Lehrkraft-Zugangsdaten
+    tss_login = StringField("Lehrkraft Login", validators=[Optional(), _PASSWORD_LENGTH])
+    tss_password = PasswordField("Lehrkraft Passwort", validators=[Optional(), _PASSWORD_LENGTH])
+
+    # Mail-Server
     mail_server = StringField("Mail Server", validators=[Optional(), Length(max=255)])
     mail_port = IntegerField("Mail Port", validators=[Optional(), NumberRange(min=1, max=65535)])
     mail_use_ssl = BooleanField("Nutze SSL", validators=[Optional()])
@@ -85,18 +113,16 @@ class ConfigForm(FlaskForm):
     sprechtag_termin = DateField(
         "Termin",
         format="%Y-%m-%d",
-        validators=[DataRequired(message="Bitte dem Termin des Aubildersprechtages eingeben.")],
-        render_kw={
-            "title": "An welchem Tag findet der Ausbildersprechtag statt?",
-        },
+        validators=[DataRequired(message="Bitte den Termin des Ausbildersprechtages eingeben.")],
+        render_kw={"title": "An welchem Tag findet der Ausbildersprechtag statt?"},
     )
     sprechtag_beginn = StringField(
         "Uhrzeit, Anfang",
         filters=[normalize_whitespace],
         validators=[Optional(), validate_time_format],
         render_kw={
-            "placeholder": "z.B.: 16:00h",
-            "title": "Um welche Uhrzeit findet der erste Termin statt??",
+            "placeholder": _TIME_PLACEHOLDER,
+            "title": "Um welche Uhrzeit findet der erste Termin statt?",
         },
     )
     sprechtag_ende = StringField(
@@ -104,7 +130,7 @@ class ConfigForm(FlaskForm):
         filters=[normalize_whitespace],
         validators=[Optional(), validate_time_format],
         render_kw={
-            "placeholder": "z.B.: 16:00h",
+            "placeholder": _TIME_PLACEHOLDER,
             "title": "Um welche Uhrzeit findet der letzte Termin statt?",
         },
     )
@@ -112,110 +138,85 @@ class ConfigForm(FlaskForm):
         "Wartezeit bis zum Löschen",
         validators=[Optional(), NumberRange(min=15, max=24 * 60)],
         render_kw={
-            "placeholder": "z.B.: 90 (min: 15; max:1440 -> 24h)",
+            "placeholder": "z.B.: 90 (min: 15; max: 1440 → 24h)",
             "title": "Anzahl an Minuten, nach denen eine nicht bestätigte Anmeldung gelöscht wird.",
         },
     )
     submit = SubmitField("Einstellungen speichern")
 
 
-class BuchungShowForm(FlaskForm):
-    buchung_token = HiddenField(
-        "buchung_token",
-        validators=[Optional()],
-        render_kw={"id": "buchung_token"},
-    )
-    buchung_action = HiddenField(
-        "buchung_action",
-        validators=[DataRequired()],
-        render_kw={"id": "buchung_action"},
-    )
-
-
 class BeraterForm(FlaskForm):
-    """WTF_Form zur Benutzung in folgenden Routen:
-    @bp.route("/anmeldung.html")
-    """
+    """Formular zum Erstellen und Bearbeiten eines Beraters."""
 
-    berater_id = HiddenField("ID", validators=[Optional(), Length(max=36), Regexp(r"^\d+$")])
+    berater_id = HiddenField("ID", validators=_ID_VALIDATORS)
 
     berater_vorname = StringField(
         "Vorname",
         filters=[normalize_whitespace],
-        validators=[DataRequired(), Length(max=100)],
+        validators=[DataRequired(), _NAME_LENGTH],
         render_kw={"placeholder": "z.B.: John"},
     )
-
     berater_nachname = StringField(
         "Nachname",
         filters=[normalize_whitespace],
-        validators=[DataRequired(), Length(max=100)],
+        validators=[DataRequired(), _NAME_LENGTH],
         render_kw={"placeholder": "z.B.: Lennon"},
     )
-
     berater_raum = StringField(
         "Raum",
         filters=[normalize_whitespace],
         validators=[DataRequired(), Length(max=20)],
-        render_kw={"placeholder": "z.B.: R109", "title": "Der Raum, in dem Sie den/die Ausbilder:In erwarten."},
+        render_kw={
+            "placeholder": "z.B.: R109",
+            "title": "Der Raum, in dem Sie den/die Ausbilder:in erwarten.",
+        },
     )
-
     berater_mail = EmailField(
         "E-Mail",
         filters=[normalize_whitespace],
-        validators=[Optional(), Email(message="Bitte gieb eine gültige E-Mail-Adresse ein."), Length(max=100)],
+        validators=[Optional(), _EMAIL_VALIDATOR, _EMAIL_LENGTH],
         render_kw={"placeholder": "z.B.: john@beatles.de"},
     )
-
     berater_will_mail = BooleanField(
         "Benachrichtigung per Mail",
         default=False,
         render_kw={
-            "title": "Ich bin damit einverstanden, dass eine Benachrichtigung an mich "
-            "gesendet wird, sobald eine Anmeldung erfolgt"
+            "title": (
+                "Ich bin damit einverstanden, dass eine Benachrichtigung an mich "
+                "gesendet wird, sobald eine Anmeldung erfolgt."
+            )
         },
     )
-
     berater_dauer = IntegerField(
         "Dauer eines Termins",
         validators=[Optional(), NumberRange(min=10, max=45)],
         render_kw={
-            "placeholder": "z.B.: 15 (min:10 - max:45)",
-            "title": "Die Dauer in Minuten, für die ein Termin gebucht werden kann",
+            "placeholder": "z.B.: 15 (min: 10 – max: 45)",
+            "title": "Die Dauer in Minuten, für die ein Termin gebucht werden kann.",
         },
     )
     berater_token = HiddenField(
-        "beratberater_tokener_token",
+        "berater_token",
         validators=[Optional()],
         render_kw={"id": "berater_token"},
     )
+    submit_berater = SubmitField("Lehrkraft erstellen / aktualisieren")
 
-    submit_berater = SubmitField("Lehrkraft erstellen")
-
-    def __repr__(self):
-        return "<BeraterForm:>"
+    def __repr__(self) -> str:
+        return "<BeraterForm>"
 
 
 class BeraterShowForm(FlaskForm):
-    action = HiddenField(
-        "Action",
-        validators=[DataRequired()],
-        render_kw={"id": "form_action"},
-    )
-    token = HiddenField(
-        "token",
-        validators=[DataRequired()],
-        render_kw={"id": "form_token"},
-    )
+    """Formular für Aktionen auf der Beraterliste (z. B. Löschen, Bearbeiten)."""
+
+    action = HiddenField("Action", validators=[DataRequired()], render_kw={"id": "form_action"})
+    token = HiddenField("token", validators=[DataRequired()], render_kw={"id": "form_token"})
 
 
 class BuchungForm(FlaskForm):
-    """WTF_Form zur Benutzung in folgenden Routen:
-    @app.route("/")
-    @app.route("/vollzeitschule.html"
-    """
+    """Formular zur Buchung eines Sprechtag-Termins."""
 
-    buchung_id = HiddenField("buchug_id", validators=[Optional(), Length(max=36), Regexp(r"^\d+$")])
+    buchung_id = HiddenField("buchung_id", validators=_ID_VALIDATORS)
 
     berater_id = SelectField(
         "Mit wem möchten Sie sprechen?",
@@ -225,36 +226,26 @@ class BuchungForm(FlaskForm):
     )
     uhrzeit_id = SelectField(
         "Wann möchten Sie mit der Lehrkraft sprechen?",
-        validators=[DataRequired("Bitte wählen Sie eine Uhrzeit.")],  # Optional() durch DataRequired ersetzen
+        validators=[DataRequired("Bitte wählen Sie eine Uhrzeit.")],
         render_kw={"title": "Bitte wählen Sie eine Uhrzeit aus."},
     )
-
     betrieb_name = StringField(
         "Betrieb (Ausbilder) / Erziehungsberechtigte",
         filters=[normalize_whitespace],
-        validators=[DataRequired(), Length(max=100)],
+        validators=[DataRequired(), _NAME_LENGTH],
         render_kw={"placeholder": "z.B.: Apple Records Ltd. (George Martin)"},
     )
-    """
-    buchung_vorname = StringField(
-        "Vorname",
-        filters=[normalize_whitespace],
-        validators=[DataRequired(), Length(max=100)],
-        render_kw={"placeholder": "z.B.: John"},
-    )
-
-    buchung_nachname = StringField(
-        "Nachname",
-        filters=[normalize_whitespace],
-        validators=[DataRequired(), Length(max=100)],
-        render_kw={"placeholder": "z.B.: Lennon"},
-    )
-    """
-
     betrieb_mail = EmailField(
         "E-Mail",
         filters=[normalize_whitespace],
-        validators=[Optional(), Email(message="Bitte geben Sie eine gültige E-Mail-Adresse ein."), Length(max=100)],
+        validators=[Optional(), _EMAIL_VALIDATOR, _EMAIL_LENGTH],
         render_kw={"placeholder": "z.B.: john@beatles.de"},
     )
     submit = SubmitField("Termin buchen")
+
+
+class BuchungShowForm(FlaskForm):
+    """Formular für Aktionen auf der Buchungsübersicht (z. B. Bestätigen, Stornieren)."""
+
+    buchung_token = HiddenField("buchung_token", validators=[Optional()], render_kw={"id": "buchung_token"})
+    buchung_action = HiddenField("buchung_action", validators=[DataRequired()], render_kw={"id": "buchung_action"})

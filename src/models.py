@@ -1,78 +1,140 @@
-# +-----------------------------------------------
-# + DATENBANK-MODELLE
-# +-----------------------------------------------
+# ------------------------------------------------------------------------------
+#  DATENBANK-MODELLE
+# ------------------------------------------------------------------------------
+
 from datetime import date, datetime
 from secrets import token_urlsafe
+
+from werkzeug.security import generate_password_hash
 
 from src.extensions import db
 
 
-token = db.Column(db.String(32), default=lambda: token_urlsafe(12))
+# ------------------------------------------------------------------------------
+# Konstanten
+# ------------------------------------------------------------------------------
+
+TOKEN_LENGTH = 12
+
+# Admin / TSS
+DEFAULT_ADMIN_LOGIN = "admin"
+DEFAULT_ADMIN_PASSWORD = "admin"
+DEFAULT_TSS_LOGIN = "tssbit"
+DEFAULT_TSS_PASSWORD = "tssbit"
+
+# Mail-Server
+DEFAULT_MAIL_SERVER = "smtp.office365.com"
+DEFAULT_MAIL_PORT = 587
+DEFAULT_MAIL_USER = "john@beatles.com"
+DEFAULT_MAIL_PASS = "yellosubmarine"
+DEFAULT_MAIL_SENDER = "paul@beatles.com"
+
+# Sprechtag
+DEFAULT_SPRECHTAG_BEGINN = "16:00"
+DEFAULT_SPRECHTAG_ENDE = "19:00"
+DEFAULT_SPRECHTAG_WARTEZEIT = 90
+DEFAULT_BERATER_DAUER = 15
 
 
-# Daten, wie Adminpassword. -login, Mailzugang
+# ------------------------------------------------------------------------------
+# Hilfsfunktionen
+# ------------------------------------------------------------------------------
+
+
+def _make_token() -> str:
+    """Erzeugt ein neues URL-sicheres Token. Als Callable für db.Column(default=) gedacht."""
+    return token_urlsafe(TOKEN_LENGTH)
+
+
+# ------------------------------------------------------------------------------
+# Modelle
+# ------------------------------------------------------------------------------
+
+
 class ConfigSetting(db.Model):
+    """Speichert alle zur Laufzeit änderbaren Anwendungseinstellungen."""
+
     __tablename__ = "ConfigSetting"
 
     id = db.Column(db.Integer, primary_key=True)
 
-    # Admin Credentials
-    admin_login = db.Column(db.String(100), nullable=False, default="admin")
-    admin_password = db.Column(db.String(255), nullable=False, default="admin")
-    # TSS Credentials
-    tss_login = db.Column(db.String(100), nullable=False, default="tssbit")
-    tss_password = db.Column(db.String(255), nullable=False, default="tssbit")
+    # Admin-Zugangsdaten
+    admin_login = db.Column(db.String(100), nullable=False, default=DEFAULT_ADMIN_LOGIN)
+    admin_password = db.Column(
+        db.String(255),
+        nullable=False,
+        default=lambda: generate_password_hash(DEFAULT_ADMIN_PASSWORD),
+    )
 
-    # Mail Server Einstellungen
-    mail_server = db.Column(db.String(255), default="smtp.office365.com")
-    mail_port = db.Column(db.Integer, default=587)
+    # TSS-Zugangsdaten
+    tss_login = db.Column(db.String(100), nullable=False, default=DEFAULT_TSS_LOGIN)
+    tss_password = db.Column(
+        db.String(255),
+        nullable=False,
+        default=lambda: generate_password_hash(DEFAULT_TSS_PASSWORD),
+    )
+
+    # Mail-Server-Einstellungen
+    mail_server = db.Column(db.String(255), default=DEFAULT_MAIL_SERVER)
+    mail_port = db.Column(db.Integer, default=DEFAULT_MAIL_PORT)
     mail_use_tls = db.Column(db.Boolean, default=True)
     mail_use_ssl = db.Column(db.Boolean, default=False)
-    mail_username = db.Column(db.String(255), default="john@beatles.com")
-    mail_password = db.Column(db.String(255), default="yellosubmarine")
-    mail_default_sender = db.Column(db.String(255), default="paul@beatles.com")
+    mail_username = db.Column(db.String(255), default=DEFAULT_MAIL_USER)
+    mail_password = db.Column(db.String(255), default=DEFAULT_MAIL_PASS)
+    mail_default_sender = db.Column(db.String(255), default=DEFAULT_MAIL_SENDER)
 
-    # Sprechtag Einstallungen
+    # Sprechtag-Einstellungen
     sprechtag_termin = db.Column(db.Date, default=date.today)
-    sprechtag_beginn = db.Column(db.String(6), default="16:00")
-    sprechtag_ende = db.Column(db.String(6), default="19:00")
-    sprechtag_wartezeit = db.Column(db.Integer(), default="90")
+    sprechtag_beginn = db.Column(db.String(6), default=DEFAULT_SPRECHTAG_BEGINN)
+    sprechtag_ende = db.Column(db.String(6), default=DEFAULT_SPRECHTAG_ENDE)
+    sprechtag_wartezeit = db.Column(db.Integer, default=DEFAULT_SPRECHTAG_WARTEZEIT)
 
 
 class Berater(db.Model):
-    """Die Personen, mit denen man einen Termin buchen kann."""
+    """Repräsentiert eine Person, mit der ein Termin gebucht werden kann."""
+
+    __tablename__ = "berater"
 
     berater_id = db.Column(db.Integer, primary_key=True)
     berater_nachname = db.Column(db.String(100), nullable=False)
     berater_vorname = db.Column(db.String(100), nullable=False)
     berater_mail = db.Column(db.String(100), nullable=False)
-    berater_dauer = db.Column(db.Integer, default=15)
+    berater_dauer = db.Column(db.Integer, default=DEFAULT_BERATER_DAUER)
     berater_raum = db.Column(db.String(100), nullable=True)
     berater_will_mail = db.Column(db.Boolean, default=False)
-    token = db.Column(db.String(32), default=lambda: token_urlsafe(12))
+    # WICHTIG: Callable (ohne Klammern) übergeben, damit es bei jedem Insert neu berechnet wird
+    token = db.Column(db.String(32), default=_make_token)
+
     # Verknüpfung zur Buchungstabelle (Eins-zu-Viele)
     buchungen = db.relationship("Buchung", backref="berater", lazy=True)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Berater: {self.berater_nachname}, {self.berater_vorname}>"
 
 
 class Buchung(db.Model):
-    """Die eigentlichen Termine."""
+    """Repräsentiert einen gebuchten Termin beim Sprechtag."""
+
+    __tablename__ = "buchung"
 
     buchung_id = db.Column(db.Integer, primary_key=True)
     betrieb_name = db.Column(db.String(100), nullable=False)
     uhrzeit_id = db.Column(db.String(5), nullable=False)
     betrieb_mail = db.Column(db.String(100), nullable=True)
     bestaetigt = db.Column(db.Boolean, nullable=False, default=False)
-    token = db.Column(db.String(32), default=lambda: token_urlsafe(12))
+    # WICHTIG: Callable (ohne Klammern) übergeben, damit es bei jedem Insert neu berechnet wird
+    token = db.Column(db.String(32), default=_make_token)
     erstellt_um = db.Column(db.DateTime, default=datetime.now)
 
-    # Fremdschlüssel: Welche Person wurde gebucht?
-    berater_id = db.Column(db.Integer, db.ForeignKey("berater.berater_id"), nullable=False)
+    # Fremdschlüssel: Welcher Berater wurde gebucht?
+    berater_id = db.Column(
+        db.Integer,
+        db.ForeignKey("berater.berater_id"),
+        nullable=False,
+    )
 
-    # Verhindert, dass derselbe Berater zur selben Zeit doppelt gebucht wird
+    # Verhindert Doppelbuchung desselben Beraters zur selben Zeit
     __table_args__ = (db.UniqueConstraint("berater_id", "uhrzeit_id", name="_berater_zeit_uc"),)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Buchung: {self.betrieb_name}>"

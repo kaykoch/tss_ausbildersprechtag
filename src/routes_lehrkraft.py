@@ -9,6 +9,7 @@ from flask import (
     send_file,
     url_for,
 )
+from flask.typing import ResponseReturnValue
 from markupsafe import Markup
 
 from src.extensions import state
@@ -25,161 +26,192 @@ from src.models import Berater, Buchung
 logger = logging.getLogger(__name__)
 bp = Blueprint("tss", __name__)
 
+# ------------------------------------------------------------------------------
+# Modulkonstanten
+# ------------------------------------------------------------------------------
+
+_TITLE_LEHRKRAFT = "Administration - Lehrkräfte"
+_TITLE_ANMELDUNG = "Lehrkräfte"
+_TITLE_BUCHUNGEN = "Buchungen"
+
+_TEMPLATE_LEHRKRAFT = "tss/lehrkraft.html"
+_TEMPLATE_ANMELDUNG = "tss/lehrkraft_anmeldung.html"
+_TEMPLATE_BUCHUNGEN = "tss/lehrkraft_buchungen.html"
+
+_ALLOWED_ROLES_TSS = ["admin", "tss"]
+
+
+# ------------------------------------------------------------------------------
+# Routen
+# ------------------------------------------------------------------------------
+
 
 @bp.route("/", methods=["GET", "POST"])
-@_requires_auth(["admin", "tss"])
-def route_lehrkraft() -> str:
-    """zeigt alle administrativen Aufgaben auf einer Webseite"""
+@_requires_auth(_ALLOWED_ROLES_TSS)
+def route_lehrkraft() -> ResponseReturnValue:
+    """Zeigt alle administrativen Aufgaben auf einer Webseite."""
     berater_token: str | None = request.values.get("token")
-    berater: Berater | None = None
-    title = "Administration - Lehrkräfte"
 
-    # Aufruf durch existierenden Berater oder Admin
     if berater_token:
-        # Überprüfung, ob token und berater existieren, sonst Abbruch
         berater = _get_berater_by_token_or_abort(berater_token)
         return render_template(
-            "tss/lehrkraft.html",
-            title=title,
+            _TEMPLATE_LEHRKRAFT,
+            title=_TITLE_LEHRKRAFT,
             sprechtag=state.sprechtag,
             berater=berater,
         )
-    else:
-        # Erster Aufruf einer Lehrkraft wird zur Anmeldung weitergeleitet
-        return redirect(url_for("tss.route_lehrkraftanmeldung"))
+
+    return redirect(url_for("tss.route_lehrkraftanmeldung"))
 
 
 @bp.route("/lehrkraft_anmeldung.html", methods=["GET", "POST"])
-@_requires_auth(["admin", "tss"])
-def route_lehrkraftanmeldung() -> str:
-    """zeigt die Anmeldeseite für Lehrkräfte und, wenn sie schon angemeldet sind,
-    deren Einstellungen
-
-    Returns:
-        str: Webseite
-    """
-    title = "Lehrkräfte"
+@_requires_auth(_ALLOWED_ROLES_TSS)
+def route_lehrkraftanmeldung() -> ResponseReturnValue:
+    """Zeigt die Anmeldeseite für Lehrkräfte und deren Einstellungen."""
     berater_token: str | None = request.values.get("token")
-    berater: Berater | None = None
+    berater: Berater | None = _get_berater_by_token_or_abort(berater_token) if berater_token else None
+    form = BeraterForm(obj=berater)
 
-    # Aufruf mit token (Berater sollte existieren)
-    if berater_token:
-        # Überprüfung, ob token und berater existieren, sonst Abbruch
-        berater = _get_berater_by_token_or_abort(berater_token)
-
-    # Formular initialisieren
-    form = BeraterForm(obj=berater) if berater else BeraterForm()
-
-    # Formular wurde abgeschickt
     if form.validate_on_submit():
-        # Speichern oder aktualisieren der Lehrkraftdaten
-        info = f"Berater: {berater.berater_vorname} {berater.berater_nachname} wurde erfolgreich"
-        try:
-            if berater:
-                # Lehrkraft existiert -> Update
-                form.populate_obj(berater)
-                state.db.session.commit()
-                info += " aktualisiert"
-                flash(Markup(info), "success")
+        return _handle_anmeldung_submit(form, berater)
 
-            else:
-                berater = Berater()
-                # Lehrkraft ist neu -> Anlegen
-                form.populate_obj(berater)
-                state.db.session.add(berater)
-                state.db.session.commit()
-                info += " eingefügt"
-                flash(Markup(info), "success")
-
-                # Bestätigungsmail an neue Lehrkraft
-                mail_info, mail_result = _send_anmeldung_mail_to_berater(berater)
-                flash(mail_info, mail_result)
-
-            redirect_url = url_for("tss.route_lehrkraftanmeldung", token=berater.token)
-            return redirect(redirect_url)
-
-        except Exception as e:
-            state.db.session.rollback()
-            logger.error(f"Datenbankfehler beim Speichern des Beraters: {e}")
-            flash("Fehler beim Speichern. Bitte versuche es erneut.", "error")
-            return render_template(
-                "tss/lehrkraft_anmeldung.html",
-                title=title,
-                form=form,
-            )
-
-    elif request.method == "POST":
-        logger.error(f"Formular-Fehler in route_anmeldung: {form.errors}")
-        texts = [msg for messages in form.errors.values() for msg in messages]
-        flash(Markup("<br>".join(texts)), "error")
+    if request.method == "POST":
+        _flash_form_errors("route_lehrkraftanmeldung", form)
 
     return render_template(
-        "tss/lehrkraft_anmeldung.html",
-        title=title,
+        _TEMPLATE_ANMELDUNG,
+        title=_TITLE_ANMELDUNG,
         form=form,
         sprechtag=state.sprechtag,
     )
 
 
 @bp.route("/buchungen.html", methods=["GET", "POST"])
-@_requires_auth(["admin", "tss"])
-def route_buchungenanzeige() -> str:
-    """zeigt alle Buchungen einer Lehrkraft an
-
-    Returns:
-        str: Webseite
-    """
-    title = "Buchungen"
+@_requires_auth(_ALLOWED_ROLES_TSS)
+def route_buchungenanzeige() -> ResponseReturnValue:
+    """Zeigt alle Buchungen einer Lehrkraft an."""
     berater_token: str | None = request.values.get("token")
-    berater: Berater | None = None
-
-    # Überprüfung, ob token und berater existieren, sonst Abbruch
     berater = _get_berater_by_token_or_abort(berater_token)
     form = BuchungShowForm()
 
-    # Formular wurde abgeschickt
     if form.validate_on_submit():
         match form.buchung_action.data:
-            # Download aller Buchungen
             case "download":
-                file_io = _export_to_pdf(berater)
-                return send_file(
-                    file_io,
-                    mimetype="application/pdf",
-                    as_attachment=True,
-                    download_name=f"{berater.berater_nachname}_{berater.berater_vorname}.pdf",
-                    conditional=False,
-                )
-
-            # Löschen einer einzelnen Buchung
+                return _handle_buchung_download(berater)
             case "delete":
-                if not form.buchung_token.data:
-                    flash("Keine Buchungs-ID angegeben.", "error")
-                    return redirect(url_for("tss.route_buchungenanzeige", token=berater_token))
-
-                stmt = state.db.select(Buchung).where(Buchung.token == form.buchung_token.data)
-                buchung = state.db.session.execute(stmt).scalars().first()
-
-                if buchung:
-                    info = f"{buchung.betrieb_name} um {buchung.uhrzeit_id}h"
-                    try:
-                        state.db.session.delete(buchung)
-                        state.db.session.commit()
-                        flash(f"Buchung: {info} wurde erfolgreich gelöscht", "success")
-
-                    except Exception as e:
-                        state.db.session.rollback()
-                        logger.error(f"Fehler beim Löschen der Buchung ({info}): {e}")
-                        flash("Fehler beim Löschen. Bitte versuchen Sie es erneut.", "error")
-                else:
-                    flash("Buchung existiert nicht", "error")
-
-                return redirect(url_for("tss.route_buchungenanzeige", token=berater_token))
+                return _handle_buchung_delete(form, berater_token)
 
     return render_template(
-        "tss/lehrkraft_buchungen.html",
-        title=title,
+        _TEMPLATE_BUCHUNGEN,
+        title=_TITLE_BUCHUNGEN,
         form=form,
         sprechtag=state.sprechtag,
         berater=berater,
     )
+
+
+# ------------------------------------------------------------------------------
+# Hilfsfunktionen – Anmeldung
+# ------------------------------------------------------------------------------
+
+
+def _handle_anmeldung_submit(form: BeraterForm, berater: Berater | None) -> ResponseReturnValue:
+    """Verarbeitet das abgeschickte Anmeldeformular (Erstanlage oder Update)."""
+    try:
+        if berater:
+            berater = _update_berater(form, berater)
+        else:
+            berater = _create_berater(form)
+        return redirect(url_for("tss.route_lehrkraftanmeldung", token=berater.token))
+
+    except Exception as e:
+        state.db.session.rollback()
+        logger.error("Datenbankfehler beim Speichern des Beraters: %s", e)
+        flash("Fehler beim Speichern. Bitte versuche es erneut.", "error")
+        return render_template(
+            _TEMPLATE_ANMELDUNG,
+            title=_TITLE_ANMELDUNG,
+            form=form,
+        )
+
+
+def _update_berater(form: BeraterForm, berater: Berater) -> Berater:
+    """Aktualisiert einen bestehenden Berater in der Datenbank."""
+    form.populate_obj(berater)
+    state.db.session.commit()
+    flash(
+        Markup(f"Berater: {berater.berater_vorname} {berater.berater_nachname} wurde erfolgreich aktualisiert"),
+        "success",
+    )
+    return berater
+
+
+def _create_berater(form: BeraterForm) -> Berater:
+    """Legt einen neuen Berater an und sendet eine Bestätigungsmail."""
+    berater = Berater()
+    form.populate_obj(berater)
+    state.db.session.add(berater)
+    state.db.session.commit()
+    flash(
+        Markup(f"Berater: {berater.berater_vorname} {berater.berater_nachname} wurde erfolgreich eingefügt"),
+        "success",
+    )
+    mail_info, mail_result = _send_anmeldung_mail_to_berater(berater)
+    flash(mail_info, mail_result)
+    return berater
+
+
+def _flash_form_errors(context: str, form: BeraterForm) -> None:
+    """Gibt Formularfehler als Flash-Nachricht aus."""
+    logger.error("Formular-Fehler in %s: %s", context, form.errors)
+    texts = [msg for messages in form.errors.values() for msg in messages]
+    flash(Markup("<br>".join(texts)), "error")
+
+
+# ------------------------------------------------------------------------------
+# Hilfsfunktionen – Buchungen
+# ------------------------------------------------------------------------------
+
+
+def _handle_buchung_download(berater: Berater) -> ResponseReturnValue:
+    """Exportiert alle Buchungen eines Beraters als PDF."""
+    file_io = _export_to_pdf(berater)
+    return send_file(
+        file_io,
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=f"{berater.berater_nachname}_{berater.berater_vorname}.pdf",
+        conditional=False,
+    )
+
+
+def _handle_buchung_delete(form: BuchungShowForm, berater_token: str) -> ResponseReturnValue:
+    """Löscht eine einzelne Buchung anhand des Buchungs-Tokens."""
+    redirect_url = url_for("tss.route_buchungenanzeige", token=berater_token)
+
+    if not form.buchung_token.data:
+        flash("Keine Buchungs-ID angegeben.", "error")
+        return redirect(redirect_url)
+
+    stmt = state.db.select(Buchung).where(Buchung.token == form.buchung_token.data)
+    buchung = state.db.session.execute(stmt).scalars().first()
+
+    if not buchung:
+        flash("Buchung existiert nicht.", "error")
+        return redirect(redirect_url)
+
+    _delete_buchung(buchung)
+    return redirect(redirect_url)
+
+
+def _delete_buchung(buchung: Buchung) -> None:
+    """Löscht eine Buchung aus der Datenbank."""
+    info = f"{buchung.betrieb_name} um {buchung.uhrzeit_id}h"
+    try:
+        state.db.session.delete(buchung)
+        state.db.session.commit()
+        flash(f"Buchung: {info} wurde erfolgreich gelöscht.", "success")
+    except Exception as e:
+        state.db.session.rollback()
+        logger.error("Fehler beim Löschen der Buchung (%s): %s", info, e)
+        flash("Fehler beim Löschen. Bitte versuchen Sie es erneut.", "error")

@@ -1,8 +1,10 @@
-.venv/
-.git/
-/instance/
-__pycache__/
-.code-workspace
-*.log
-startGunicorn.py
-sprechtag.py
+ .venv/ 
+ .vscode/
+ __pycache__
+ instance/
+ src/data
+
+.env
+.venv/*
+src/__pycache__/*
+

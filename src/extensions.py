@@ -1,3 +1,7 @@
+# ------------------------------------------------------------------------------
+#  EXTENSIONS UND APP-STATE
+# ------------------------------------------------------------------------------
+
 from dataclasses import dataclass
 import logging
 from pathlib import Path
@@ -7,91 +11,109 @@ from flask_mail import Mail
 from flask_sqlalchemy import SQLAlchemy
 
 
-db = SQLAlchemy()  # noch ohne App
-mail = Mail()  # noch ohne App
 logger = logging.getLogger(__name__)
+
+
+# ------------------------------------------------------------------------------
+# Flask-Extensions (noch ohne App – werden in create_app gebunden)
+# ------------------------------------------------------------------------------
+
+db = SQLAlchemy()
+mail = Mail()
+
+
+# ------------------------------------------------------------------------------
+# Datenstrukturen
+# ------------------------------------------------------------------------------
 
 
 @dataclass
 class Sprechtagdata:
-    """
-    Repräsentiert eine Datenstruktur aus drei Strings mit dataclasses.
-    """
+    """Unveränderliche Datenstruktur für die Sprechtag-Eckdaten."""
 
     tag: str
     beginn: str
     ende: str
 
 
+# ------------------------------------------------------------------------------
+# App-State
+# ------------------------------------------------------------------------------
+
+
 class AppState:
-    """verkörpert Zustände, die während der Laufzeit gespeichert werden müssen"""
+    """Speichert den globalen Laufzeit-Zustand der Applikation.
 
-    def __init__(self):
-        # Die Wichtigsten
+    Wird einmalig als Modul-Singleton `state` instanziiert und in
+    `create_app` mit der Flask-App verknüpft.
+    """
 
+    # Datei- und Ordnernamen als Klassenkonstanten
+    _DATA_DIR = Path(__file__).resolve().parent / "data"
+    _STATIC_DIR = Path(__file__).resolve().parent / "static"
+    _LOG_FILE = "logfile.log"
+
+    def __init__(self) -> None:
         self.db: SQLAlchemy = db
-        self.mail = mail
-        self.app: Flask = None
+        self.mail: Mail = mail
+        self.app: Flask | None = None
 
-        # Pfade zu den verschiedenen Dateien
-        self.datafolder: Path = Path(__file__).resolve().parent / "data/"
-        self.staticfolder: Path = Path(__file__).resolve().parent / "static/"
-        self.sprechtag: dataclass | None = None
-        self.logfile = self.__ensure_file_exists(self.datafolder, "logfile.log")
+        self.datafolder: Path = self._DATA_DIR
+        self.staticfolder: Path = self._STATIC_DIR
+        self.sprechtag: Sprechtagdata | None = None
 
-    def set_sprechtag(self, tag: str, beginn: str, ende: str):
-        self.sprechtag = Sprechtagdata(
-            tag,
-            beginn,
-            ende,
-        )
+        self.logfile: Path = self._ensure_file_exists(self._DATA_DIR, self._LOG_FILE)
 
-    def set_data(self, app, **kwargs):
-        """setzt die Pfade der Dateien und initialisiert die Schulformen
+    # ------------------------------------------------------------------
+    # Öffentliche Setter
+    # ------------------------------------------------------------------
+
+    def set_data(self, app: Flask) -> None:
+        """Verknüpft die Flask-App mit dem State.
 
         Args:
-            datafolder (path): absoluter Pfad zum Ordner der Dateien
-
-            **kwargs: mehrere Dateinamen
-
-                erlaubte keys sind:
-                klassenfile (str): Name der CSV-Datei mit den Klassennamen für den Upload
-                prototype_klassen (str): Name der CSV-Datei im korrekten Format für den Upload
+            app: Die laufende Flask-Applikation.
         """
+        self.app = app
 
-        self.app: Flask = app
+    def set_sprechtag(self, tag: str, beginn: str, ende: str) -> None:
+        """Setzt die Sprechtag-Eckdaten.
+
+        Args:
+            tag:    Datum des Sprechtags.
+            beginn: Startzeit (z. B. "16:00").
+            ende:   Endzeit   (z. B. "19:00").
         """
-        for attr_name, filename in kwargs.items():
-            # Alle übergebenden Werte
-            if hasattr(self, attr_name):
-                # Es gibt den Schlüssel hier in der Class
-                file_path = self.__ensure_file_exists(self.datafolder, filename)
-                setattr(self, attr_name, file_path)
-                logger.info(f"Datei: {attr_name} vorhanden")
+        self.sprechtag = Sprechtagdata(tag=tag, beginn=beginn, ende=ende)
+
+    # ------------------------------------------------------------------
+    # Interne Hilfsmethoden
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _ensure_file_exists(directory: Path | str | None, filename: str) -> Path:
+        """Stellt sicher, dass eine Datei (und ihr Verzeichnis) existiert.
+
+        Args:
+            directory: Zielverzeichnis. Wird zu "." normalisiert, wenn None.
+            filename:  Dateiname innerhalb des Verzeichnisses.
+
+        Returns:
+            Absoluter Pfad zur Datei, oder Path() bei einem Fehler.
         """
-
-    def __ensure_file_exists(self, directory: str, filename: str) -> Path:
-        # 1. Sicherstellen, dass directory ein String ist (falls None übergeben wurde)
-        directory_str = directory or "."
-
-        # 2. Pfad-Objekt erstellen
-        filepath = Path(directory_str) / filename
+        filepath = Path(directory or ".") / filename
 
         try:
-            # 3. Elternverzeichnis erstellen, falls es nicht existiert
             filepath.parent.mkdir(parents=True, exist_ok=True)
-
-            # 4. Datei erstellen (tut nichts, wenn sie schon existiert)
             filepath.touch(exist_ok=True)
-
-            # 5. Absoluten Pfad zurückgeben
             return filepath.resolve()
-
         except Exception as e:
-            logger.exception(f"Kann Datei nicht anlegen: {filepath}: ({e})")
-            # 6. Im Fehlerfall ein leeres Pfad-Objekt zurückgeben
+            logger.exception("Kann Datei nicht anlegen: %s (%s)", filepath, e)
             return Path()
 
 
-# 2) App-weiter Zustand (State) vorbereiten
+# ------------------------------------------------------------------------------
+# Modul-Singleton
+# ------------------------------------------------------------------------------
+
 state = AppState()

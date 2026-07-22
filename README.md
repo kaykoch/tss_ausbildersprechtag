@@ -46,8 +46,8 @@ git clone https://github.com/kaykoch/tss_ausbildersprechtag.git /var/www/ausbild
  cd /var/www/ausbildersprechtag/
 
 # Setup-Programm ausführbar machen und starten
-chmod +x ./setup.sh 
-./setup.sh                                
+chmod +x ./setup.py 
+./setup.py                                
 ```
 
 ## Programmstart

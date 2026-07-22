@@ -121,6 +121,16 @@ h3 span {
   margin-bottom: 10px;
 }
 
+.field.password{
+  position: relative;
+}
+.field.password span{
+  position: absolute; 
+  right: 10px; 
+  top: 32px; 
+  cursor: pointer;
+}
+
 label,
 .label {
   font-size: 0.85rem;
