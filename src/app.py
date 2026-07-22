@@ -9,7 +9,7 @@ from flask import Flask
 
 from src.config import BaseConfig
 from src.extensions import state
-from src.helpies import _init_db, _update_app
+from src.helpies import _init_db, _load_defaults
 
 
 # ------------------------------------------------------------------------------
@@ -79,7 +79,7 @@ def _bootstrap(app: Flask) -> None:
         logger.info("%s", _SEPARATOR)
         state.set_data(app)
         _init_db(state)
-        _update_app()
+        _load_defaults()
         state.mail.init_app(app)
     except Exception as e:
         logger.exception("Fehler bei der App-Initialisierung: %s", e)

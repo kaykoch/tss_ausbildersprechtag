@@ -1,1 +1,147 @@
-
+2026-07-22 12:53:23 INFO werkzeug:  * Detected change in '/home/kaykoch/Nextcloud/Python/tss_ausbildersprechtag/tss_ausbildersprechtag/src/helpies.py', reloading
+2026-07-22 12:53:23 INFO werkzeug:  * Restarting with stat
+2026-07-22 12:53:24 INFO src.app: --------------------------------------------------
+2026-07-22 12:53:24 INFO src.helpies: Datenbanktabellen erstellt/überprüft.
+2026-07-22 12:53:25 INFO src.app: --------------------------------------------------
+2026-07-22 12:53:25 INFO src.app:   --> !! App: Erfassungsbogen wurde erfolgreich gestartet !!
+2026-07-22 12:53:25 INFO src.app: --------------------------------------------------
+2026-07-22 12:53:25 WARNING werkzeug:  * Debugger is active!
+2026-07-22 12:53:25 INFO werkzeug:  * Debugger PIN: 364-187-602
+2026-07-22 12:53:34 INFO werkzeug:  * Detected change in '/home/kaykoch/Nextcloud/Python/tss_ausbildersprechtag/tss_ausbildersprechtag/src/helpies.py', reloading
+2026-07-22 12:53:34 INFO werkzeug:  * Restarting with stat
+2026-07-22 12:53:35 INFO src.app: --------------------------------------------------
+2026-07-22 12:53:35 INFO src.helpies: Datenbanktabellen erstellt/überprüft.
+2026-07-22 12:53:35 INFO src.app: --------------------------------------------------
+2026-07-22 12:53:35 INFO src.app:   --> !! App: Erfassungsbogen wurde erfolgreich gestartet !!
+2026-07-22 12:53:35 INFO src.app: --------------------------------------------------
+2026-07-22 12:53:35 WARNING werkzeug:  * Debugger is active!
+2026-07-22 12:53:35 INFO werkzeug:  * Debugger PIN: 364-187-602
+2026-07-22 12:55:55 INFO werkzeug:  * Detected change in '/home/kaykoch/Nextcloud/Python/tss_ausbildersprechtag/tss_ausbildersprechtag/src/helpies.py', reloading
+2026-07-22 12:55:55 INFO werkzeug:  * Restarting with stat
+2026-07-22 12:55:56 INFO src.app: --------------------------------------------------
+2026-07-22 12:55:56 INFO src.helpies: Datenbanktabellen erstellt/überprüft.
+2026-07-22 12:55:57 INFO src.app: --------------------------------------------------
+2026-07-22 12:55:57 INFO src.app:   --> !! App: Erfassungsbogen wurde erfolgreich gestartet !!
+2026-07-22 12:55:57 INFO src.app: --------------------------------------------------
+2026-07-22 12:55:57 WARNING werkzeug:  * Debugger is active!
+2026-07-22 12:55:57 INFO werkzeug:  * Debugger PIN: 364-187-602
+2026-07-22 12:56:04 INFO src.app: --------------------------------------------------
+2026-07-22 12:56:04 INFO src.helpies: Datenbanktabellen erstellt/überprüft.
+2026-07-22 12:56:04 INFO src.app: --------------------------------------------------
+2026-07-22 12:56:04 INFO src.app:   --> !! App: Erfassungsbogen wurde erfolgreich gestartet !!
+2026-07-22 12:56:04 INFO src.app: --------------------------------------------------
+2026-07-22 12:56:04 INFO werkzeug: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2026-07-22 12:56:04 INFO werkzeug: [33mPress CTRL+C to quit[0m
+2026-07-22 12:56:04 INFO werkzeug:  * Restarting with stat
+2026-07-22 12:56:05 INFO src.app: --------------------------------------------------
+2026-07-22 12:56:05 INFO src.helpies: Datenbanktabellen erstellt/überprüft.
+2026-07-22 12:56:05 INFO src.app: --------------------------------------------------
+2026-07-22 12:56:05 INFO src.app:   --> !! App: Erfassungsbogen wurde erfolgreich gestartet !!
+2026-07-22 12:56:05 INFO src.app: --------------------------------------------------
+2026-07-22 12:56:05 WARNING werkzeug:  * Debugger is active!
+2026-07-22 12:56:05 INFO werkzeug:  * Debugger PIN: 364-187-602
+2026-07-22 12:56:24 INFO src.app: --------------------------------------------------
+2026-07-22 12:56:24 INFO src.helpies: Datenbanktabellen erstellt/überprüft.
+2026-07-22 12:56:24 INFO src.app: --------------------------------------------------
+2026-07-22 12:56:24 INFO src.app:   --> !! App: Erfassungsbogen wurde erfolgreich gestartet !!
+2026-07-22 12:56:24 INFO src.app: --------------------------------------------------
+2026-07-22 12:56:24 INFO werkzeug: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2026-07-22 12:56:24 INFO werkzeug: [33mPress CTRL+C to quit[0m
+2026-07-22 12:56:24 INFO werkzeug:  * Restarting with stat
+2026-07-22 12:56:25 INFO src.app: --------------------------------------------------
+2026-07-22 12:56:25 INFO src.helpies: Datenbanktabellen erstellt/überprüft.
+2026-07-22 12:56:25 INFO src.app: --------------------------------------------------
+2026-07-22 12:56:25 INFO src.app:   --> !! App: Erfassungsbogen wurde erfolgreich gestartet !!
+2026-07-22 12:56:25 INFO src.app: --------------------------------------------------
+2026-07-22 12:56:25 WARNING werkzeug:  * Debugger is active!
+2026-07-22 12:56:25 INFO werkzeug:  * Debugger PIN: 364-187-602
+2026-07-22 13:01:36 INFO werkzeug:  * Detected change in '/home/kaykoch/Nextcloud/Python/tss_ausbildersprechtag/tss_ausbildersprechtag/src/routes_admin.py', reloading
+2026-07-22 13:01:36 INFO werkzeug:  * Restarting with stat
+2026-07-22 13:01:38 INFO src.app: --------------------------------------------------
+2026-07-22 13:01:38 INFO src.helpies: Datenbanktabellen erstellt/überprüft.
+2026-07-22 13:01:38 INFO src.app: --------------------------------------------------
+2026-07-22 13:01:38 INFO src.app:   --> !! App: Erfassungsbogen wurde erfolgreich gestartet !!
+2026-07-22 13:01:38 INFO src.app: --------------------------------------------------
+2026-07-22 13:01:38 WARNING werkzeug:  * Debugger is active!
+2026-07-22 13:01:38 INFO werkzeug:  * Debugger PIN: 364-187-602
+2026-07-22 13:01:42 INFO werkzeug:  * Detected change in '/home/kaykoch/Nextcloud/Python/tss_ausbildersprechtag/tss_ausbildersprechtag/src/helpies.py', reloading
+2026-07-22 13:01:42 INFO werkzeug:  * Restarting with stat
+2026-07-22 13:01:43 INFO src.app: --------------------------------------------------
+2026-07-22 13:01:43 INFO src.helpies: Datenbanktabellen erstellt/überprüft.
+2026-07-22 13:01:43 INFO src.app: --------------------------------------------------
+2026-07-22 13:01:43 INFO src.app:   --> !! App: Erfassungsbogen wurde erfolgreich gestartet !!
+2026-07-22 13:01:43 INFO src.app: --------------------------------------------------
+2026-07-22 13:01:43 WARNING werkzeug:  * Debugger is active!
+2026-07-22 13:01:43 INFO werkzeug:  * Debugger PIN: 364-187-602
+2026-07-22 13:04:07 INFO werkzeug:  * Detected change in '/home/kaykoch/Nextcloud/Python/tss_ausbildersprechtag/tss_ausbildersprechtag/src/models.py', reloading
+2026-07-22 13:04:07 INFO werkzeug:  * Restarting with stat
+2026-07-22 13:04:08 INFO src.app: --------------------------------------------------
+2026-07-22 13:04:08 INFO src.helpies: Datenbanktabellen erstellt/überprüft.
+2026-07-22 13:04:08 INFO src.app: --------------------------------------------------
+2026-07-22 13:04:08 INFO src.app:   --> !! App: Erfassungsbogen wurde erfolgreich gestartet !!
+2026-07-22 13:04:08 INFO src.app: --------------------------------------------------
+2026-07-22 13:04:08 WARNING werkzeug:  * Debugger is active!
+2026-07-22 13:04:08 INFO werkzeug:  * Debugger PIN: 364-187-602
+2026-07-22 13:04:30 INFO werkzeug:  * Detected change in '/home/kaykoch/Nextcloud/Python/tss_ausbildersprechtag/tss_ausbildersprechtag/src/models.py', reloading
+2026-07-22 13:04:30 INFO werkzeug:  * Restarting with stat
+2026-07-22 13:04:31 INFO src.app: --------------------------------------------------
+2026-07-22 13:04:31 INFO src.helpies: Datenbanktabellen erstellt/überprüft.
+2026-07-22 13:04:32 INFO src.app: --------------------------------------------------
+2026-07-22 13:04:32 INFO src.app:   --> !! App: Erfassungsbogen wurde erfolgreich gestartet !!
+2026-07-22 13:04:32 INFO src.app: --------------------------------------------------
+2026-07-22 13:04:32 WARNING werkzeug:  * Debugger is active!
+2026-07-22 13:04:32 INFO werkzeug:  * Debugger PIN: 364-187-602
+2026-07-22 13:06:43 INFO werkzeug:  * Detected change in '/home/kaykoch/Nextcloud/Python/tss_ausbildersprechtag/tss_ausbildersprechtag/src/routes_admin.py', reloading
+2026-07-22 13:06:43 INFO werkzeug:  * Restarting with stat
+2026-07-22 13:06:44 INFO src.app: --------------------------------------------------
+2026-07-22 13:06:44 INFO src.helpies: Datenbanktabellen erstellt/überprüft.
+2026-07-22 13:06:44 INFO src.app: --------------------------------------------------
+2026-07-22 13:06:44 INFO src.app:   --> !! App: Erfassungsbogen wurde erfolgreich gestartet !!
+2026-07-22 13:06:44 INFO src.app: --------------------------------------------------
+2026-07-22 13:06:44 WARNING werkzeug:  * Debugger is active!
+2026-07-22 13:06:44 INFO werkzeug:  * Debugger PIN: 364-187-602
+2026-07-22 13:07:21 INFO werkzeug:  * Detected change in '/home/kaykoch/Nextcloud/Python/tss_ausbildersprechtag/tss_ausbildersprechtag/src/routes_admin.py', reloading
+2026-07-22 13:07:21 INFO werkzeug:  * Restarting with stat
+2026-07-22 13:07:22 INFO src.app: --------------------------------------------------
+2026-07-22 13:07:22 INFO src.helpies: Datenbanktabellen erstellt/überprüft.
+2026-07-22 13:07:22 INFO src.app: --------------------------------------------------
+2026-07-22 13:07:22 INFO src.app:   --> !! App: Erfassungsbogen wurde erfolgreich gestartet !!
+2026-07-22 13:07:22 INFO src.app: --------------------------------------------------
+2026-07-22 13:07:22 WARNING werkzeug:  * Debugger is active!
+2026-07-22 13:07:22 INFO werkzeug:  * Debugger PIN: 364-187-602
+2026-07-22 13:07:45 INFO werkzeug:  * Detected change in '/home/kaykoch/Nextcloud/Python/tss_ausbildersprechtag/tss_ausbildersprechtag/src/routes_admin.py', reloading
+2026-07-22 13:07:45 INFO werkzeug:  * Restarting with stat
+2026-07-22 13:07:46 INFO src.app: --------------------------------------------------
+2026-07-22 13:07:46 INFO src.helpies: Datenbanktabellen erstellt/überprüft.
+2026-07-22 13:07:46 INFO src.app: --------------------------------------------------
+2026-07-22 13:07:46 INFO src.app:   --> !! App: Erfassungsbogen wurde erfolgreich gestartet !!
+2026-07-22 13:07:46 INFO src.app: --------------------------------------------------
+2026-07-22 13:07:46 WARNING werkzeug:  * Debugger is active!
+2026-07-22 13:07:46 INFO werkzeug:  * Debugger PIN: 364-187-602
+2026-07-22 13:10:20 INFO werkzeug:  * Detected change in '/home/kaykoch/Nextcloud/Python/tss_ausbildersprechtag/tss_ausbildersprechtag/src/helpies.py', reloading
+2026-07-22 13:10:20 INFO werkzeug:  * Restarting with stat
+2026-07-22 13:10:22 INFO src.app: --------------------------------------------------
+2026-07-22 13:10:22 INFO src.helpies: Datenbanktabellen erstellt/überprüft.
+2026-07-22 13:10:22 INFO src.app: --------------------------------------------------
+2026-07-22 13:10:22 INFO src.app:   --> !! App: Erfassungsbogen wurde erfolgreich gestartet !!
+2026-07-22 13:10:22 INFO src.app: --------------------------------------------------
+2026-07-22 13:10:22 WARNING werkzeug:  * Debugger is active!
+2026-07-22 13:10:22 INFO werkzeug:  * Debugger PIN: 364-187-602
+2026-07-22 13:12:42 INFO src.app: --------------------------------------------------
+2026-07-22 13:12:42 INFO src.helpies: Datenbanktabellen erstellt/überprüft.
+2026-07-22 13:12:42 INFO src.app: --------------------------------------------------
+2026-07-22 13:12:42 INFO src.app:   --> !! App: Erfassungsbogen wurde erfolgreich gestartet !!
+2026-07-22 13:12:42 INFO src.app: --------------------------------------------------
+2026-07-22 13:12:42 INFO werkzeug: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2026-07-22 13:12:42 INFO werkzeug: [33mPress CTRL+C to quit[0m
+2026-07-22 13:12:42 INFO werkzeug:  * Restarting with stat
+2026-07-22 13:12:43 INFO src.app: --------------------------------------------------
+2026-07-22 13:12:43 INFO src.helpies: Datenbanktabellen erstellt/überprüft.
+2026-07-22 13:12:43 INFO src.app: --------------------------------------------------
+2026-07-22 13:12:43 INFO src.app:   --> !! App: Erfassungsbogen wurde erfolgreich gestartet !!
+2026-07-22 13:12:43 INFO src.app: --------------------------------------------------
+2026-07-22 13:12:43 WARNING werkzeug:  * Debugger is active!
+2026-07-22 13:12:43 INFO werkzeug:  * Debugger PIN: 676-340-573

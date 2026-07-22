@@ -23,9 +23,10 @@ from src.forms import BeraterShowForm, ConfigForm
 from src.helpies import (
     _delete_berater,
     _get_berater_by_token_or_abort,
+    _load_config,
+    _load_defaults,
     _requires_auth,
     _send_anmeldung_mail_to_berater,
-    _update_app,
 )
 from src.models import Berater, ConfigSetting
 
@@ -117,12 +118,6 @@ def route_berateranzeige() -> ResponseReturnValue:
 # ------------------------------------------------------------------------------
 
 
-def _load_config() -> ConfigSetting | None:
-    """Lädt den ersten Konfigurationsdatensatz aus der Datenbank."""
-    stmt = state.db.select(ConfigSetting).limit(1)
-    return state.db.session.execute(stmt).scalar_one_or_none()
-
-
 def _save_config(form: ConfigForm, cfg: ConfigSetting | None) -> ConfigSetting:
     """Speichert die Konfiguration aus dem Formular in die Datenbank."""
     if cfg is None:
@@ -133,8 +128,10 @@ def _save_config(form: ConfigForm, cfg: ConfigSetting | None) -> ConfigSetting:
     _apply_password_fields(form, cfg)
 
     try:
+        # neue Daten speichern
         state.db.session.commit()
-        _update_app()
+        # geänderte Daten wieder neu einlesen
+        _load_defaults()
         flash("Konfiguration erfolgreich gespeichert.", "success")
     except SQLAlchemyError:
         state.db.session.rollback()

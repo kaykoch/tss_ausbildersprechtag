@@ -132,7 +132,15 @@ def _seed_defaults(models) -> None:
         )
 
 
-def _update_app() -> None:
+def _config_to_dict(cfg: ConfigSetting) -> dict:
+    """Wandelt ein ConfigSetting-Objekt in ein Dictionary um (ohne 'id')."""
+    mapper = inspect(cfg).mapper
+    data = {c.key: getattr(cfg, c.key) for c in mapper.columns}
+    data.pop("id", None)
+    return data
+
+
+def _load_defaults() -> None:
     """Lädt dynamische Konfigurationswerte aus der DB in die Flask-App-Konfiguration.
 
     Attributnamen des Modells werden in Großbuchstaben umgewandelt:
@@ -141,31 +149,32 @@ def _update_app() -> None:
     Passwort-Felder (admin_*, tss_*) werden übersprungen.
     Das Mail-Passwort wird vor dem Schreiben entschlüsselt.
     """
-
-    def _to_dict(obj) -> dict:
-        mapper = inspect(obj).mapper
-        return {c.key: getattr(obj, c.key) for c in mapper.columns}
-
     try:
-        cfg = None
-        for cfg in STATE.db.session.query(ConfigSetting):
-            data = _to_dict(cfg)
-            data.pop("id", None)
-            for key, value in data.items():
-                if key not in _IGNORE_CONFIG_KEYS:
-                    STATE.app.config[key.upper()] = value
+        cfg = _load_config()
+        if cfg is None:
+            logger.warning("_load_defaults: Keine Konfiguration in der Datenbank gefunden.")
+            return
+
+        data = _config_to_dict(cfg)
+
+        STATE.app.config.update({key.upper(): value for key, value in data.items() if key not in _IGNORE_CONFIG_KEYS})
 
         STATE.app.config["MAIL_PASSWORD"] = _get_decrypted_mail_password(STATE.app.config["MAIL_PASSWORD"])
 
-        if cfg is not None:
-            STATE.set_sprechtag(
-                _formatiere_datum_deutsch(STATE.app.config["SPRECHTAG_TERMIN"]),
-                STATE.app.config["SPRECHTAG_BEGINN"],
-                STATE.app.config["SPRECHTAG_ENDE"],
-            )
+        STATE.set_sprechtag(
+            tag=_formatiere_datum_deutsch(data["sprechtag_termin"]),
+            beginn=data["sprechtag_beginn"],
+            ende=data["sprechtag_ende"],
+        )
 
     except Exception as e:
         logger.exception("Konnte App-Konfiguration nicht aus DB laden: %s", e)
+
+
+def _load_config() -> ConfigSetting | None:
+    """Lädt den ersten Konfigurationsdatensatz aus der Datenbank."""
+    stmt = STATE.db.select(ConfigSetting).limit(1)
+    return STATE.db.session.execute(stmt).scalar_one_or_none()
 
 
 # ------------------------------------------------------------------------------

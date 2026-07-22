@@ -1,8 +1,8 @@
- .venv/ 
+ .venv/*
  .vscode/
  __pycache__
  instance/
- src/data
+ src/data/*
 
 .env
 .venv/*

@@ -26,7 +26,6 @@ DEFAULT_TSS_PASSWORD = "tssbit"
 DEFAULT_MAIL_SERVER = "smtp.office365.com"
 DEFAULT_MAIL_PORT = 587
 DEFAULT_MAIL_USER = "john@beatles.com"
-DEFAULT_MAIL_PASS = "yellosubmarine"
 DEFAULT_MAIL_SENDER = "paul@beatles.com"
 
 # Sprechtag
@@ -79,9 +78,10 @@ class ConfigSetting(db.Model):
     mail_port = db.Column(db.Integer, default=DEFAULT_MAIL_PORT)
     mail_use_tls = db.Column(db.Boolean, default=True)
     mail_use_ssl = db.Column(db.Boolean, default=False)
-    mail_username = db.Column(db.String(255), default=DEFAULT_MAIL_USER)
-    mail_password = db.Column(db.String(255), default=DEFAULT_MAIL_PASS)
     mail_default_sender = db.Column(db.String(255), default=DEFAULT_MAIL_SENDER)
+    mail_username = db.Column(db.String(255), default=DEFAULT_MAIL_USER)
+    # muss für neue DB Null sein und erst später über Admin-Menü belegt werden
+    mail_password = db.Column(db.String(255), nullable=True)
 
     # Sprechtag-Einstellungen
     sprechtag_termin = db.Column(db.Date, default=date.today)
