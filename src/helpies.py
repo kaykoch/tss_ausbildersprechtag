@@ -11,7 +11,7 @@ from pathlib import Path
 from smtplib import SMTPAuthenticationError, SMTPException
 
 from cryptography.fernet import Fernet
-from flask import Response, abort, make_response, render_template, request
+from flask import Response, abort, flash, make_response, render_template, request
 from flask_mail import Message
 from markupsafe import Markup
 from sqlalchemy import text
@@ -462,6 +462,11 @@ def _get_decrypted_mail_password(mail_password: str) -> str:
     return Fernet(secret_key.encode()).decrypt(mail_password.encode()).decode()
 
 
+def _encrypt_password(plain: str, key: str) -> str:
+    fernet = Fernet(key.encode())
+    return fernet.encrypt(plain.encode()).decode()
+
+
 # ------------------------------------------------------------------------------
 # Diverses
 # ------------------------------------------------------------------------------
@@ -516,6 +521,12 @@ def _formatiere_datum_deutsch(dt: datetime) -> str:
     return f"{_WOCHENTAGE[dt.weekday()]}, {dt.day}. {_MONATE[dt.month]} {dt.year}"
 
 
+def _flash_form_errors(context: str, form) -> None:
+    logger.error("Formular-Fehler in %s: %s", context, form.errors)
+    texts = [msg for messages in form.errors.values() for msg in messages]
+    flash(Markup("<br>".join(texts)), "error")
+
+
 # ------------------------------------------------------------------------------
 # Authentifizierung – intern
 # ------------------------------------------------------------------------------
@@ -531,6 +542,7 @@ def __check_auth_and_get_type(username: str, password: str) -> str | None:
     Returns:
         "admin" | "tss" bei Erfolg, None bei ungültigen Daten.
     """
+
     config = STATE.db.session.execute(STATE.db.select(ConfigSetting)).scalars().first()
     if not config:
         return None
@@ -568,7 +580,7 @@ def _requires_auth(allowed_login_types: str | list | tuple):
         @_requires_auth("admin")
         @_requires_auth(["admin", "tss"])
     """
-    if not isinstance(allowed_login_types, (list, tuple)):
+    if not isinstance(allowed_login_types, (list, tuple, frozenset)):
         allowed_login_types = [allowed_login_types]
 
     def decorator(f):

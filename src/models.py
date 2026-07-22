@@ -8,6 +8,7 @@ from secrets import token_urlsafe
 from werkzeug.security import generate_password_hash
 
 from src.extensions import db
+from src.forms import BeraterForm
 
 
 # ------------------------------------------------------------------------------
@@ -33,11 +34,6 @@ DEFAULT_SPRECHTAG_BEGINN = "16:00"
 DEFAULT_SPRECHTAG_ENDE = "19:00"
 DEFAULT_SPRECHTAG_WARTEZEIT = 90
 DEFAULT_BERATER_DAUER = 15
-
-
-# ------------------------------------------------------------------------------
-# Hilfsfunktionen
-# ------------------------------------------------------------------------------
 
 
 def _make_token() -> str:
@@ -138,3 +134,42 @@ class Buchung(db.Model):
 
     def __repr__(self) -> str:
         return f"<Buchung: {self.betrieb_name}>"
+
+
+# ------------------------------------------------------------------------------
+# Hilfsfunktionen
+# ------------------------------------------------------------------------------
+
+
+def _get_berater_liste() -> list[Berater]:
+    """Lädt alle Berater aus der DB und rendert die Übersichtsseite."""
+
+    stmt = db.select(Berater).order_by(
+        Berater.berater_nachname,
+        Berater.berater_vorname,
+    )
+
+    return db.session.execute(stmt).scalars().all()
+
+
+def _create_berater(form: BeraterForm) -> Berater:
+    berater = Berater()
+    form.populate_obj(berater)
+    db.session.add(berater)
+    db.session.commit()
+    return berater
+
+
+def _update_berater(form: BeraterForm, berater: Berater) -> None:
+    form.populate_obj(berater)
+    db.session.commit()
+
+
+def _get_buchung_by_token(token: str) -> Buchung | None:
+    stmt = db.select(Buchung).where(Buchung.token == token)
+    return db.session.execute(stmt).scalars().first()
+
+
+def _delete_buchung(buchung: Buchung) -> None:
+    db.session.delete(buchung)
+    db.session.commit()

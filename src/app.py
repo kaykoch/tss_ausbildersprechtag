@@ -80,6 +80,7 @@ def _bootstrap(app: Flask) -> None:
         state.set_data(app)
         _init_db(state)
         _load_defaults()
+        state.limiter.init_app(app)
         state.mail.init_app(app)
     except Exception as e:
         logger.exception("Fehler bei der App-Initialisierung: %s", e)

@@ -1,5 +1,4 @@
 import logging
-import os
 
 from cryptography.fernet import Fernet
 from flask import (
@@ -22,13 +21,15 @@ from src.extensions import state
 from src.forms import BeraterShowForm, ConfigForm
 from src.helpies import (
     _delete_berater,
+    _encrypt_password,
+    _flash_form_errors,
     _get_berater_by_token_or_abort,
     _load_config,
     _load_defaults,
     _requires_auth,
     _send_anmeldung_mail_to_berater,
 )
-from src.models import Berater, ConfigSetting
+from src.models import Berater, ConfigSetting, _get_berater_liste
 
 
 logger = logging.getLogger(__name__)
@@ -83,7 +84,7 @@ def route_config() -> ResponseReturnValue:
         if form.validate_on_submit():
             _save_config(form, cfg)
         elif request.method == "POST":
-            _flash_form_errors(form)
+            _flash_form_errors("error", form)
 
         return render_template(
             _TEMPLATE_CONFIG,
@@ -93,9 +94,8 @@ def route_config() -> ResponseReturnValue:
         )
 
     except Exception as e:
-        current_app.logger.exception("Fehler in route_config")
         logger.error("Fehler in route_config: %s", e)
-        abort(make_response("Interner Serverfehler", 500))
+        abort(500)
 
 
 @bp.route("/berater.html", methods=["GET", "POST"])
@@ -163,21 +163,11 @@ def _apply_password_fields(form: ConfigForm, cfg: ConfigSetting) -> None:
         secret_key = state.app.config["ENCRYPTION_KEY"]
 
         if secret_key:
-            fernet = Fernet(secret_key.encode())
-            # Passwort in Bytes umwandeln, verschlüsseln und als String in DB speichern
-            encrypted_password = fernet.encrypt(form.mail_password.data.encode()).decode()
-            cfg.mail_password = encrypted_password
+            cfg.mail_password = _encrypt_password(form.mail_password.data, secret_key)
         else:
             # Sicherheits-Fallback, falls du den Key vergessen hast einzurichten
             logger.error("E-Mail-Passwort konnte nicht verschlüsselt werden: ENCRYPTION_KEY fehlt!")
             flash("Fehler: Verschlüsselungs-Key nicht konfiguriert.", "error")
-
-
-def _flash_form_errors(form: ConfigForm) -> None:
-    """Gibt Formularfehler als Flash-Nachricht aus."""
-    texts = [msg for messages in form.errors.values() for msg in messages]
-    logger.error("Formular-Fehler in route_config: %s", form.errors)
-    flash(Markup("<br>".join(texts)), "error")
 
 
 # ------------------------------------------------------------------------------
@@ -210,12 +200,7 @@ def _handle_berater_action(form: BeraterShowForm) -> ResponseReturnValue | None:
 def _render_berater_liste(form: BeraterShowForm) -> ResponseReturnValue:
     """Lädt alle Berater aus der DB und rendert die Übersichtsseite."""
     try:
-        stmt = state.db.select(Berater).order_by(
-            Berater.berater_nachname,
-            Berater.berater_vorname,
-        )
-        berater_liste = state.db.session.execute(stmt).scalars().all()
-
+        berater_liste = _get_berater_liste()
         return render_template(
             _TEMPLATE_BERATER,
             title=_TITLE_BERATER,
@@ -224,6 +209,5 @@ def _render_berater_liste(form: BeraterShowForm) -> ResponseReturnValue:
         )
 
     except Exception as e:
-        current_app.logger.exception("Fehler in route_berateranzeige")
         logger.error("Fehler in route_berateranzeige: %s", e)
-        abort(make_response("Interner Serverfehler", 500))
+        abort(500)

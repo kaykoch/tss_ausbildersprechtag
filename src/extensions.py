@@ -7,6 +7,8 @@ import logging
 from pathlib import Path
 
 from flask import Flask
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from flask_mail import Mail
 from flask_sqlalchemy import SQLAlchemy
 
@@ -21,6 +23,11 @@ logger = logging.getLogger(__name__)
 db = SQLAlchemy()
 mail = Mail()
 
+limiter = Limiter(
+    get_remote_address,
+    default_limits=["10 per minute"],
+    storage_uri="memory://",
+)
 
 # ------------------------------------------------------------------------------
 # Datenstrukturen
@@ -57,6 +64,11 @@ class AppState:
         self.db: SQLAlchemy = db
         self.mail: Mail = mail
         self.app: Flask | None = None
+        self.limiter: Limiter | None = Limiter(
+            get_remote_address,
+            default_limits=["10 per minute"],
+            storage_uri="memory://",
+        )
 
         self.datafolder: Path = self._DATA_DIR
         self.staticfolder: Path = self._STATIC_DIR

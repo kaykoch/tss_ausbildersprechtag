@@ -21,23 +21,15 @@ from src.helpies import (
     _delete_old_orders,
     _get_freie_zeiten_fuer_berater,
     _get_gebuchte_zeiten,
-    _requires_auth,
     _send_mail_to_berater,
     _send_mail_to_bucher,
 )
-from src.models import Berater, Buchung
+from src.models import Berater, Buchung, _get_berater_liste
 
 
 logger = logging.getLogger(__name__)
 bp = Blueprint("main", __name__)
 
-# Ratenbegrenzung einrichten (10 Anfragen pro Minute pro IP-Adresse)
-limiter = Limiter(
-    get_remote_address,
-    app=state.app,
-    default_limits=["10 per minute"],
-    storage_uri="memory://",
-)
 
 # ------------------------------------------------------------------------------
 # Modulkonstanten
@@ -64,12 +56,12 @@ _MSG_CONFIRM_INFO = (
 
 
 @bp.route("/", methods=["GET", "POST"])
-@limiter.limit("5 per minute")
+@state.limiter.limit("5 per minute")
 def index() -> ResponseReturnValue:
     """Startseite – Buchungsformular anzeigen und verarbeiten."""
     _delete_old_orders()
 
-    berater_liste = _load_berater_liste()
+    berater_liste = _get_berater_liste()
     form = _init_buchung_form(berater_liste)
 
     if request.method == "POST":
@@ -131,15 +123,6 @@ def route_impressum() -> ResponseReturnValue:
 # ------------------------------------------------------------------------------
 # Hilfsfunktionen – Index / Buchung
 # ------------------------------------------------------------------------------
-
-
-def _load_berater_liste() -> list[Berater]:
-    """Lädt alle Berater sortiert nach Nachname und Vorname."""
-    stmt = state.db.select(Berater).order_by(
-        Berater.berater_nachname,
-        Berater.berater_vorname,
-    )
-    return state.db.session.execute(stmt).scalars().all()
 
 
 def _init_buchung_form(berater_liste: list[Berater]) -> BuchungForm:
