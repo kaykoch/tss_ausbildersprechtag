@@ -1,39 +1,32 @@
 import logging
 
-from cryptography.fernet import Fernet
 from flask import (
     Blueprint,
     abort,
     current_app,
     flash,
-    make_response,
     redirect,
     render_template,
     request,
     url_for,
 )
 from flask.typing import ResponseReturnValue
-from markupsafe import Markup
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.security import generate_password_hash
 
 from src.extensions import state
 from src.forms import BeraterShowForm, ConfigForm
-from src.helpies import (
-    _delete_berater,
-    _encrypt_password,
-    _flash_form_errors,
-    _get_berater_by_token_or_abort,
-    _load_config,
-    _load_defaults,
-    _requires_auth,
-    _send_anmeldung_mail_to_berater,
-)
-from src.models import Berater, ConfigSetting, _get_berater_liste
+from src.models import ConfigSetting
+from src.services.berater_service import _get_berater_liste, delete_berater, get_berater_by_token_or_abort
+from src.services.config_service import load_config, load_defaults
+from src.services.crypto_service import _encrypt_password
+from src.services.mail_service import _send_anmeldung_mail_to_berater
+from src.utils.auth import _requires_auth
+from src.utils.helpers import flash_form_errors
 
 
 logger = logging.getLogger(__name__)
-bp = Blueprint("admin", __name__)
+admin_bp = Blueprint("admin", __name__)
 
 # ------------------------------------------------------------------------------
 # Modulkonstanten
@@ -61,7 +54,7 @@ _BERATER_DEFAULT_RESULT = "warning"
 # ------------------------------------------------------------------------------
 
 
-@bp.route("/", methods=["GET", "POST"])
+@admin_bp.route("/", methods=["GET", "POST"])
 @_requires_auth("admin")
 def route_admin() -> ResponseReturnValue:
     """Zeigt alle administrativen Aufgaben auf einer Webseite."""
@@ -72,11 +65,11 @@ def route_admin() -> ResponseReturnValue:
     )
 
 
-@bp.route("/config.html", methods=["GET", "POST"])
+@admin_bp.route("/config.html", methods=["GET", "POST"])
 @_requires_auth("admin")
 def route_config() -> ResponseReturnValue:
     """Zeigt die Webseite zur Eingabe der Konfigurationsdaten an."""
-    cfg = _load_config()
+    cfg = load_config()
 
     try:
         form = ConfigForm(obj=cfg)
@@ -84,7 +77,7 @@ def route_config() -> ResponseReturnValue:
         if form.validate_on_submit():
             _save_config(form, cfg)
         elif request.method == "POST":
-            _flash_form_errors("error", form)
+            flash_form_errors("error", form)
 
         return render_template(
             _TEMPLATE_CONFIG,
@@ -98,7 +91,7 @@ def route_config() -> ResponseReturnValue:
         abort(500)
 
 
-@bp.route("/berater.html", methods=["GET", "POST"])
+@admin_bp.route("/berater.html", methods=["GET", "POST"])
 @_requires_auth("admin")
 def route_berateranzeige() -> ResponseReturnValue:
     """Zeigt die Übersicht aller Lehrkräfte an und verarbeitet Aktionen."""
@@ -131,7 +124,7 @@ def _save_config(form: ConfigForm, cfg: ConfigSetting | None) -> ConfigSetting:
         # neue Daten speichern
         state.db.session.commit()
         # geänderte Daten wieder neu einlesen
-        _load_defaults()
+        load_defaults()
         flash("Konfiguration erfolgreich gespeichert.", "success")
     except SQLAlchemyError:
         state.db.session.rollback()
@@ -181,7 +174,7 @@ def _handle_berater_action(form: BeraterShowForm) -> ResponseReturnValue | None:
     Returns:
         ResponseReturnValue | None: Redirect bei update/show, None bei send/delete.
     """
-    berater = _get_berater_by_token_or_abort(form.token.data)
+    berater = get_berater_by_token_or_abort(form.token.data)
 
     match form.action.data:
         case "update":
@@ -191,7 +184,7 @@ def _handle_berater_action(form: BeraterShowForm) -> ResponseReturnValue | None:
         case "send":
             info, result = _send_anmeldung_mail_to_berater(berater)
         case "delete":
-            info, result = _delete_berater(berater)
+            info, result = delete_berater(berater)
 
     flash(info, result)
     return None

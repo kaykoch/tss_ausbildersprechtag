@@ -10,25 +10,19 @@ from flask import (
     url_for,
 )
 from flask.typing import ResponseReturnValue
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 from markupsafe import Markup
 
 from src.extensions import state
 from src.forms import BuchungForm
-from src.helpies import (
-    _copy_model_attributes,
-    _delete_old_orders,
-    _get_freie_zeiten_fuer_berater,
-    _get_gebuchte_zeiten,
-    _send_mail_to_berater,
-    _send_mail_to_bucher,
-)
-from src.models import Berater, Buchung, _get_berater_liste
+from src.models import Berater, Buchung
+from src.services.berater_service import _get_berater_liste
+from src.services.buchung_service import _delete_old_orders, _get_freie_zeiten_fuer_berater, _get_gebuchte_zeiten
+from src.services.mail_service import _send_mail_to_berater, _send_mail_to_bucher
+from src.utils.helpers import _copy_model_attributes
 
 
 logger = logging.getLogger(__name__)
-bp = Blueprint("main", __name__)
+main_bp = Blueprint("main", __name__)
 
 
 # ------------------------------------------------------------------------------
@@ -55,7 +49,7 @@ _MSG_CONFIRM_INFO = (
 # ------------------------------------------------------------------------------
 
 
-@bp.route("/", methods=["GET", "POST"])
+@main_bp.route("/", methods=["GET", "POST"])
 @state.limiter.limit("5 per minute")
 def index() -> ResponseReturnValue:
     """Startseite – Buchungsformular anzeigen und verarbeiten."""
@@ -71,7 +65,7 @@ def index() -> ResponseReturnValue:
     return _render_index(form, berater_liste)
 
 
-@bp.route("/bestaetigung.html", methods=["GET"])
+@main_bp.route("/bestaetigung.html", methods=["GET"])
 def bestaetigung() -> ResponseReturnValue:
     """Buchung wird durch Aufruf bestätigt oder gelöscht."""
     token = request.args.get("token")
@@ -102,19 +96,19 @@ def bestaetigung() -> ResponseReturnValue:
     return _render_bestaetigung(buchung=buchung, title=_TITLE_BESTAETIGUNG)
 
 
-@bp.route("/api/freie_zeiten/<int:berater_id>")
+@main_bp.route("/api/freie_zeiten/<int:berater_id>")
 def freie_zeiten(berater_id: int) -> ResponseReturnValue:
     """API – Gibt freie Zeiten für einen Berater zurück."""
     return jsonify(_get_freie_zeiten_fuer_berater(berater_id))
 
 
-@bp.route("/api/gebuchte_zeiten/<int:berater_id>")
+@main_bp.route("/api/gebuchte_zeiten/<int:berater_id>")
 def gebuchte_zeiten(berater_id: int) -> ResponseReturnValue:
     """API – Gibt gebuchte Zeiten für einen Berater zurück."""
     return jsonify(_get_gebuchte_zeiten(berater_id))
 
 
-@bp.route("/impressum.html", methods=["GET"])
+@main_bp.route("/impressum.html", methods=["GET"])
 def route_impressum() -> ResponseReturnValue:
     """Impressum anzeigen."""
     return render_template(_TEMPLATE_IMPRESSUM)

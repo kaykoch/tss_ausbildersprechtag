@@ -14,24 +14,17 @@ from markupsafe import Markup
 
 from src.extensions import state
 from src.forms import BeraterForm, BuchungShowForm
-from src.helpies import (
-    _export_to_pdf,
-    _flash_form_errors,
-    _get_berater_by_token_or_abort,
-    _requires_auth,
-    _send_anmeldung_mail_to_berater,
-)
-from src.models import (
-    Berater,
-    _create_berater,
-    _delete_buchung,
-    _get_buchung_by_token,
-    _update_berater,
-)
+from src.models import Berater
+from src.services.berater_service import _create_berater, _update_berater, get_berater_by_token_or_abort
+from src.services.buchung_service import _delete_buchung, _get_buchung_by_token
+from src.services.mail_service import _send_anmeldung_mail_to_berater
+from src.services.pdf_service import _export_to_pdf
+from src.utils.auth import _requires_auth
+from src.utils.helpers import flash_form_errors
 
 
 logger = logging.getLogger(__name__)
-bp = Blueprint("tss", __name__)
+lehrkraft_bp = Blueprint("tss", __name__)
 
 # ------------------------------------------------------------------------------
 # Modulkonstanten
@@ -53,14 +46,14 @@ _ALLOWED_ROLES_TSS: frozenset[str] = frozenset({"admin", "tss"})
 # ------------------------------------------------------------------------------
 
 
-@bp.route("/", methods=["GET", "POST"])
+@lehrkraft_bp.route("/", methods=["GET", "POST"])
 @_requires_auth(_ALLOWED_ROLES_TSS)
 def route_lehrkraft() -> ResponseReturnValue:
     """Zeigt alle administrativen Aufgaben auf einer Webseite."""
     berater_token: str | None = request.values.get("token")
 
     if berater_token:
-        berater = _get_berater_by_token_or_abort(berater_token)
+        berater = get_berater_by_token_or_abort(berater_token)
         return render_template(
             _TEMPLATE_LEHRKRAFT,
             title=_TITLE_LEHRKRAFT,
@@ -71,19 +64,19 @@ def route_lehrkraft() -> ResponseReturnValue:
     return redirect(url_for("tss.route_lehrkraftanmeldung"))
 
 
-@bp.route("/lehrkraft_anmeldung.html", methods=["GET", "POST"])
+@lehrkraft_bp.route("/lehrkraft_anmeldung.html", methods=["GET", "POST"])
 @_requires_auth(_ALLOWED_ROLES_TSS)
 def route_lehrkraftanmeldung() -> ResponseReturnValue:
     """Zeigt die Anmeldeseite für Lehrkräfte und deren Einstellungen."""
     berater_token: str | None = request.values.get("token")
-    berater: Berater | None = _get_berater_by_token_or_abort(berater_token) if berater_token else None
+    berater: Berater | None = get_berater_by_token_or_abort(berater_token) if berater_token else None
     form = BeraterForm(obj=berater)
 
     if form.validate_on_submit():
         return _handle_anmeldung_submit(form, berater)
 
     if request.method == "POST":
-        _flash_form_errors("route_lehrkraftanmeldung", form)
+        flash_form_errors("route_lehrkraftanmeldung", form)
 
     return render_template(
         _TEMPLATE_ANMELDUNG,
@@ -93,12 +86,12 @@ def route_lehrkraftanmeldung() -> ResponseReturnValue:
     )
 
 
-@bp.route("/buchungen.html", methods=["GET", "POST"])
+@lehrkraft_bp.route("/buchungen.html", methods=["GET", "POST"])
 @_requires_auth(_ALLOWED_ROLES_TSS)
 def route_buchungenanzeige() -> ResponseReturnValue:
     """Zeigt alle Buchungen einer Lehrkraft an."""
     berater_token: str | None = request.values.get("token")
-    berater = _get_berater_by_token_or_abort(berater_token)
+    berater = get_berater_by_token_or_abort(berater_token)
     form = BuchungShowForm()
 
     if form.validate_on_submit():

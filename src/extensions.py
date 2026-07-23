@@ -1,7 +1,3 @@
-# ------------------------------------------------------------------------------
-#  EXTENSIONS UND APP-STATE
-# ------------------------------------------------------------------------------
-
 from dataclasses import dataclass
 import logging
 from pathlib import Path
@@ -15,6 +11,19 @@ from flask_sqlalchemy import SQLAlchemy
 
 logger = logging.getLogger(__name__)
 
+_DEFAULT_BERATER = [
+    ("Koch", "Kay", "koch@tssbit.de"),
+    ("Rass", "Markus", "koch@tssbit.de"),
+    ("Tigges", "Ute", "koch@tssbit.de"),
+    ("Dinstuhl", "Ralf", "koch@tssbit.de"),
+    ("Kues", "Max", "koch@tssbit.de"),
+    ("Brungs", "Thomas", "koch@tssbit.de"),
+    ("Röder", "David", "koch@tssbit.de"),
+    ("Recht", "Christian", "koch@tssbit.de"),
+    ("Glatt", "Sebastian", "koch@tssbit.de"),
+    ("Weber", "Marius", "koch@tssbit.de"),
+    ("Marweld", "Torsten", "koch@tssbit.de"),
+]
 
 # ------------------------------------------------------------------------------
 # Flask-Extensions (noch ohne App – werden in create_app gebunden)
@@ -56,9 +65,9 @@ class AppState:
     """
 
     # Datei- und Ordnernamen als Klassenkonstanten
-    _DATA_DIR = Path(__file__).resolve().parent / "data"
+    _LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
     _STATIC_DIR = Path(__file__).resolve().parent / "static"
-    _LOG_FILE = "logfile.log"
+    _LOG_FILE = "sprechtag.log"
 
     def __init__(self) -> None:
         self.db: SQLAlchemy = db
@@ -70,11 +79,11 @@ class AppState:
             storage_uri="memory://",
         )
 
-        self.datafolder: Path = self._DATA_DIR
+        self.datafolder: Path = self._LOG_DIR
         self.staticfolder: Path = self._STATIC_DIR
         self.sprechtag: Sprechtagdata | None = None
 
-        self.logfile: Path = self._ensure_file_exists(self._DATA_DIR, self._LOG_FILE)
+        self.logfile: Path = self._ensure_file_exists(self._LOG_DIR, self._LOG_FILE)
 
     # ------------------------------------------------------------------
     # Öffentliche Setter

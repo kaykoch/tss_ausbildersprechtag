@@ -8,7 +8,6 @@ from secrets import token_urlsafe
 from werkzeug.security import generate_password_hash
 
 from src.extensions import db
-from src.forms import BeraterForm
 
 
 # ------------------------------------------------------------------------------
@@ -134,69 +133,3 @@ class Buchung(db.Model):
 
     def __repr__(self) -> str:
         return f"<Buchung: {self.betrieb_name}>"
-
-
-# ------------------------------------------------------------------------------
-# Hilfsfunktionen
-# ------------------------------------------------------------------------------
-
-
-def _get_berater_liste() -> list[Berater]:
-    """Lädt alle Berater aus der DB."""
-
-    stmt = db.select(Berater).order_by(
-        Berater.berater_nachname,
-        Berater.berater_vorname,
-    )
-
-    return db.session.execute(stmt).scalars().all()
-
-
-def _create_berater(form: BeraterForm) -> Berater:
-    """Erstellt einen neuen Berater aufgrund der form und liefert den berater zurück
-
-    Args:
-        form (BeraterForm): Flask Form
-
-    Returns:
-        Berater: erstelleter Berater
-    """
-    berater = Berater()
-    form.populate_obj(berater)
-    db.session.add(berater)
-    db.session.commit()
-    return berater
-
-
-def _update_berater(form: BeraterForm, berater: Berater) -> None:
-    """Aktualisiert einen Berater aufgrund der Daten in Form
-
-    Args:
-        form (BeraterForm): Flask Form
-        berater (Berater): Berater, der aktualsiert wird
-    """
-    form.populate_obj(berater)
-    db.session.commit()
-
-
-def _get_buchung_by_token(token: str) -> Buchung | None:
-    """liefert eine Buchung aufgrund seines tokens
-
-    Args:
-        token (str): Token der Buchung
-
-    Returns:
-        Buchung | None: gesuchte Buchung
-    """
-    stmt = db.select(Buchung).where(Buchung.token == token)
-    return db.session.execute(stmt).scalars().first()
-
-
-def _delete_buchung(buchung: Buchung) -> None:
-    """löscht eine Buchung
-
-    Args:
-        buchung (Buchung): zu löschende Buchung
-    """
-    db.session.delete(buchung)
-    db.session.commit()
