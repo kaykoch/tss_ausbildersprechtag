@@ -78,7 +78,7 @@ def _bootstrap(app: Flask) -> None:
     try:
         logger.info("%s", _SEPARATOR)
         state.set_data(app)
-        _init_db(state)
+        _init_db()
         _load_defaults()
         state.limiter.init_app(app)
         state.mail.init_app(app)

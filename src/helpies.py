@@ -20,12 +20,11 @@ from sqlalchemy.inspection import inspect
 from weasyprint import CSS, HTML
 from werkzeug.security import check_password_hash
 
+from src.extensions import state
 from src.models import Berater, Buchung, ConfigSetting
 
 
 logger = logging.getLogger(__name__)
-
-STATE = None
 
 
 # ------------------------------------------------------------------------------
@@ -83,20 +82,18 @@ _DEFAULT_BERATER = [
 # ------------------------------------------------------------------------------
 
 
-def _init_db(state) -> None:
+def _init_db() -> None:
     """Initialisiert die SQLite-Datenbank beim App-Start.
 
     Erstellt alle Tabellen, legt einen Standard-ConfigSetting-Eintrag an
     und befüllt die Berater-Tabelle mit Beispieldaten, falls sie leer ist.
 
     Args:
-        state: AppState-Objekt mit db, app und weiteren Laufzeit-Variablen.
+        state: Appstate-Objekt mit db, app und weiteren Laufzeit-Variablen.
     """
-    global STATE
-    STATE = state
 
     try:
-        Path(STATE.app.instance_path).mkdir(parents=True, exist_ok=True)
+        Path(state.app.instance_path).mkdir(parents=True, exist_ok=True)
 
         # Import hier, damit Modelle registriert sind, bevor create_all() aufgerufen wird
         import src.models  # noqa: F401
@@ -104,9 +101,9 @@ def _init_db(state) -> None:
         # Locale für Datumsformatierung setzen (Fallback auf C.UTF-8)
         locale.setlocale(locale.LC_TIME, "C.UTF-8")
 
-        STATE.db.create_all()
+        state.db.create_all()
         _seed_defaults(src.models)
-        STATE.db.session.commit()
+        state.db.session.commit()
 
         logger.info("Datenbanktabellen erstellt/überprüft.")
 
@@ -124,10 +121,10 @@ def _seed_defaults(models) -> None:
         models: Das src.models-Modul (nach dem Import in _init_db).
     """
     if not models.ConfigSetting.query.first():
-        STATE.db.session.add(models.ConfigSetting())
+        state.db.session.add(models.ConfigSetting())
 
     if not Berater.query.first():
-        STATE.db.session.add_all(
+        state.db.session.add_all(
             Berater(berater_nachname=n, berater_vorname=v, berater_mail=m) for n, v, m in _DEFAULT_BERATER
         )
 
@@ -157,11 +154,11 @@ def _load_defaults() -> None:
 
         data = _config_to_dict(cfg)
 
-        STATE.app.config.update({key.upper(): value for key, value in data.items() if key not in _IGNORE_CONFIG_KEYS})
+        state.app.config.update({key.upper(): value for key, value in data.items() if key not in _IGNORE_CONFIG_KEYS})
 
-        STATE.app.config["MAIL_PASSWORD"] = _get_decrypted_mail_password(STATE.app.config["MAIL_PASSWORD"])
+        state.app.config["MAIL_PASSWORD"] = _get_decrypted_mail_password(state.app.config["MAIL_PASSWORD"])
 
-        STATE.set_sprechtag(
+        state.set_sprechtag(
             tag=_formatiere_datum_deutsch(data["sprechtag_termin"]),
             beginn=data["sprechtag_beginn"],
             ende=data["sprechtag_ende"],
@@ -173,8 +170,8 @@ def _load_defaults() -> None:
 
 def _load_config() -> ConfigSetting | None:
     """Lädt den ersten Konfigurationsdatensatz aus der Datenbank."""
-    stmt = STATE.db.select(ConfigSetting).limit(1)
-    return STATE.db.session.execute(stmt).scalar_one_or_none()
+    stmt = state.db.select(ConfigSetting).limit(1)
+    return state.db.session.execute(stmt).scalar_one_or_none()
 
 
 # ------------------------------------------------------------------------------
@@ -193,14 +190,14 @@ def _delete_berater(berater: Berater) -> tuple[str, str]:
     """
     name = f"{berater.berater_vorname} {berater.berater_nachname}"
     try:
-        STATE.db.session.delete(berater)
-        STATE.db.session.commit()
+        state.db.session.delete(berater)
+        state.db.session.commit()
         info = f"{name} und alle Termine gelöscht."
         logger.info(info)
         return (info, "success")
 
     except Exception as e:
-        STATE.db.session.rollback()
+        state.db.session.rollback()
         info = f"Fehler beim Löschen der Lehrkraft {name}: {e}"
         logger.error(info)
         return (info, "error")
@@ -223,8 +220,8 @@ def _get_berater_by_token_or_abort(berater_token: str | None = None) -> Berater:
         abort(make_response("bad request! (Kein Token angegeben)", 400))
 
     try:
-        stmt = STATE.db.select(Berater).where(Berater.token == berater_token)
-        berater = STATE.db.session.execute(stmt).scalar_one_or_none()
+        stmt = state.db.select(Berater).where(Berater.token == berater_token)
+        berater = state.db.session.execute(stmt).scalar_one_or_none()
 
         if berater is None:
             logger.warning("Kein Berater mit Token '%s' gefunden.", berater_token)
@@ -239,15 +236,15 @@ def _get_berater_by_token_or_abort(berater_token: str | None = None) -> Berater:
 
 def _delete_old_orders() -> None:
     """Löscht nicht bestätigte Buchungen, die älter als die konfigurierte Wartezeit sind."""
-    cutoff = datetime.now() - timedelta(minutes=STATE.app.config["SPRECHTAG_WARTEZEIT"])
+    cutoff = datetime.now() - timedelta(minutes=state.app.config["SPRECHTAG_WARTEZEIT"])
     try:
-        stmt = STATE.db.delete(Buchung).where(Buchung.bestaetigt.is_(False)).where(Buchung.erstellt_um < cutoff)
-        result = STATE.db.session.execute(stmt)
-        STATE.db.session.commit()
+        stmt = state.db.delete(Buchung).where(Buchung.bestaetigt.is_(False)).where(Buchung.erstellt_um < cutoff)
+        result = state.db.session.execute(stmt)
+        state.db.session.commit()
         logger.info("_delete_old_orders: %d alte Buchung(en) gelöscht.", result.rowcount)
 
     except Exception as e:
-        STATE.db.session.rollback()
+        state.db.session.rollback()
         logger.error("Fehler beim Löschen alter Buchungen: %s", e)
 
 
@@ -266,8 +263,8 @@ def _generiere_zeiten(dauer: int = 15) -> list[str]:
         Liste mit Uhrzeiten, z. B. ["16:00", "16:15", ...].
     """
     zeiten = []
-    start = datetime.strptime(STATE.sprechtag.beginn, "%H:%M")
-    ende = datetime.strptime(STATE.sprechtag.ende, "%H:%M")
+    start = datetime.strptime(state.sprechtag.beginn, "%H:%M")
+    ende = datetime.strptime(state.sprechtag.ende, "%H:%M")
 
     while start <= ende:
         zeiten.append(start.strftime("%H:%M"))
@@ -285,8 +282,8 @@ def _get_gebuchte_zeiten(berater_id: int) -> list[str]:
     Returns:
         Liste gebuchter Uhrzeiten, z. B. ["16:30", "17:15"].
     """
-    stmt = STATE.db.select(Buchung.uhrzeit_id).filter_by(berater_id=berater_id)
-    return STATE.db.session.execute(stmt).scalars().all()
+    stmt = state.db.select(Buchung.uhrzeit_id).filter_by(berater_id=berater_id)
+    return state.db.session.execute(stmt).scalars().all()
 
 
 def _get_freie_zeiten_fuer_berater(berater_id: int) -> list[str]:
@@ -298,8 +295,8 @@ def _get_freie_zeiten_fuer_berater(berater_id: int) -> list[str]:
     Returns:
         Liste freier Uhrzeiten, z. B. ["16:00", "16:15", "16:45"].
     """
-    stmt = STATE.db.select(Berater.berater_dauer).filter_by(berater_id=berater_id)
-    dauer = STATE.db.session.execute(stmt).scalars().first()
+    stmt = state.db.select(Berater.berater_dauer).filter_by(berater_id=berater_id)
+    dauer = state.db.session.execute(stmt).scalars().first()
 
     alle_zeiten = _generiere_zeiten(dauer)
     gebuchte_zeiten = set(_get_gebuchte_zeiten(berater_id))
@@ -319,7 +316,7 @@ def __send_mail(msg: Message) -> bool:
         True bei erfolgreichem Versand, sonst False.
     """
     try:
-        STATE.mail.send(msg)
+        state.mail.send(msg)
         logger.debug("Mail gesendet an: %s", msg.recipients)
         return True
 
@@ -369,7 +366,7 @@ def _send_mail_to_bucher(buchung: Buchung) -> tuple[Markup, str]:
         buchung.betrieb_mail,
         "mail/mail_bucher.html",
         buchung=buchung,
-        sprechtag=STATE.sprechtag,
+        sprechtag=state.sprechtag,
     )
     sent = __send_mail(msg)
 
@@ -406,7 +403,7 @@ def _send_mail_to_berater(buchung: Buchung, delete: bool = False) -> None:
         berater.berater_mail,
         "mail/mail_berater.html",
         buchung=buchung,
-        sprechtag=STATE.sprechtag,
+        sprechtag=state.sprechtag,
         delete=delete,
     )
     sent = __send_mail(msg)
@@ -456,7 +453,7 @@ def _get_decrypted_mail_password(mail_password: str) -> str:
     Returns:
         Entschlüsseltes Passwort als String, oder "" bei fehlendem Key/Passwort.
     """
-    secret_key = STATE.app.config.get("ENCRYPTION_KEY")
+    secret_key = state.app.config.get("ENCRYPTION_KEY")
     if not secret_key or not mail_password:
         return ""
     return Fernet(secret_key.encode()).decrypt(mail_password.encode()).decode()
@@ -486,27 +483,23 @@ def _copy_model_attributes(obj) -> dict:
     return {key: getattr(obj, key) for key in dir(obj) if not key.startswith("_") and not callable(getattr(obj, key))}
 
 
-def _export_to_pdf(berater: Berater) -> BytesIO | bool:
+def _export_to_pdf(berater: Berater) -> BytesIO:
     """Erzeugt ein PDF für einen Berater und gibt es als BytesIO zurück.
 
     Args:
         berater: Berater-Objekt, dessen Daten ins PDF einfließen.
 
     Returns:
-        BytesIO mit dem PDF-Inhalt, oder False bei einem Fehler.
+        BytesIO mit dem PDF-Inhalt
     """
-    try:
-        html_content = render_template("pdf_layout.html", berater=berater, titel="")
-        css_path = STATE.staticfolder / "pdf.css"
 
-        pdf_io = BytesIO()
-        HTML(string=html_content).write_pdf(target=pdf_io, stylesheets=[CSS(filename=css_path)])
-        pdf_io.seek(0)
-        return pdf_io
+    html_content = render_template("pdf_layout.html", berater=berater, titel="")
+    css_path = state.staticfolder / "pdf.css"
 
-    except Exception as e:
-        logger.error("_export_to_pdf -> PDF-Erstellung fehlgeschlagen: %s", e)
-        return False
+    pdf_io = BytesIO()
+    HTML(string=html_content).write_pdf(target=pdf_io, stylesheets=[CSS(filename=css_path)])
+    pdf_io.seek(0)
+    return pdf_io
 
 
 def _formatiere_datum_deutsch(dt: datetime) -> str:
@@ -543,7 +536,7 @@ def __check_auth_and_get_type(username: str, password: str) -> str | None:
         "admin" | "tss" bei Erfolg, None bei ungültigen Daten.
     """
 
-    config = STATE.db.session.execute(STATE.db.select(ConfigSetting)).scalars().first()
+    config = state.db.session.execute(state.db.select(ConfigSetting)).scalars().first()
     if not config:
         return None
 
@@ -602,22 +595,22 @@ def _requires_auth(allowed_login_types: str | list | tuple):
 
 
 # ------------------------------------------------------------------------------
-# DB-Migration (manuell aktivieren)
+# DB-Migration – NUR MANUELL AKTIVIEREN
 # ------------------------------------------------------------------------------
 
 
 def update_db() -> None:
     """Führt manuelle Datenbankmigrationen aus.
 
-    Muss in _init_db() nach STATE.db.create_all() einkommentiert werden.
+    Muss in _init_db() nach state.db.create_all() einkommentiert werden.
     Nach erfolgreicher Migration wieder auskommentieren.
     """
     new_att = "raum"
 
     for cls in ["Berater"]:
         try:
-            STATE.db.session.execute(text(f"ALTER TABLE {cls} ADD COLUMN {new_att} String"))
-            STATE.db.session.commit()
+            state.db.session.execute(text(f"ALTER TABLE {cls} ADD COLUMN {new_att} String"))
+            state.db.session.commit()
             logger.info("update_db: Spalte '%s' zu '%s' hinzugefügt.", new_att, cls)
         except Exception as e:
             logger.warning("update_db: Fehler bei '%s': %s", cls, e)

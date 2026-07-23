@@ -142,7 +142,7 @@ class Buchung(db.Model):
 
 
 def _get_berater_liste() -> list[Berater]:
-    """Lädt alle Berater aus der DB und rendert die Übersichtsseite."""
+    """Lädt alle Berater aus der DB."""
 
     stmt = db.select(Berater).order_by(
         Berater.berater_nachname,
@@ -153,6 +153,14 @@ def _get_berater_liste() -> list[Berater]:
 
 
 def _create_berater(form: BeraterForm) -> Berater:
+    """Erstellt einen neuen Berater aufgrund der form und liefert den berater zurück
+
+    Args:
+        form (BeraterForm): Flask Form
+
+    Returns:
+        Berater: erstelleter Berater
+    """
     berater = Berater()
     form.populate_obj(berater)
     db.session.add(berater)
@@ -161,15 +169,34 @@ def _create_berater(form: BeraterForm) -> Berater:
 
 
 def _update_berater(form: BeraterForm, berater: Berater) -> None:
+    """Aktualisiert einen Berater aufgrund der Daten in Form
+
+    Args:
+        form (BeraterForm): Flask Form
+        berater (Berater): Berater, der aktualsiert wird
+    """
     form.populate_obj(berater)
     db.session.commit()
 
 
 def _get_buchung_by_token(token: str) -> Buchung | None:
+    """liefert eine Buchung aufgrund seines tokens
+
+    Args:
+        token (str): Token der Buchung
+
+    Returns:
+        Buchung | None: gesuchte Buchung
+    """
     stmt = db.select(Buchung).where(Buchung.token == token)
     return db.session.execute(stmt).scalars().first()
 
 
 def _delete_buchung(buchung: Buchung) -> None:
+    """löscht eine Buchung
+
+    Args:
+        buchung (Buchung): zu löschende Buchung
+    """
     db.session.delete(buchung)
     db.session.commit()
