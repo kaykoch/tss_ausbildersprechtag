@@ -1,9 +1,8 @@
- .venv/
- .vscode/
- __pycache__
- instance/
- src/data/
-
+.venv/
+.vscode/
+__pycache__
+instance/
+src/data/
 .env
 .venv/*
 src/__pycache__/
