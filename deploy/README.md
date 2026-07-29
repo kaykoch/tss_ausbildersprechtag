@@ -67,7 +67,7 @@ Lies die Hinweise zu den Risiken, bevor du eine Variante wählst.
 **Geeignet für:** Dauerhafter Betrieb auf einem Linux-Server.
 
 > ℹ️ **Hinweise:**
-> - Läuft auf Port **8082** unter Benutzer `www-data`
+> - Läuft auf Port **8083** unter Benutzer `www-data`
 > - Startet automatisch nach einem Serverneustart
 > - Automatischer Neustart bei Absturz
 > - Pfade in der `.service`-Datei ggf. anpassen

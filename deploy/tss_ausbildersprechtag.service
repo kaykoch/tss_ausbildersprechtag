@@ -1,5 +1,5 @@
 [Unit]
-Description=Gunicorn Untisanmeldung (8082)
+Description=Gunicorn Untisanmeldung (8083)
 After=network.target
 
 [Service]
@@ -21,7 +21,7 @@ RuntimeDirectoryMode=0755
 # Gunicorn-Befehl direkt aus der venv
 ExecStart=/var/www/tss_ausbildersprechtag/.venv/bin/gunicorn \
     --workers 2 \
-    --bind 0.0.0.0:8082 \
+    --bind 0.0.0.0:8083 \
     --log-level info \
     --access-logfile /var/log/gunicorn/tss_ausbildersprechtag_access.log \
     --error-logfile /var/log/gunicorn/tss_ausbildersprechtag_error.log \
