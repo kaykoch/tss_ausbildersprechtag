@@ -1,12 +1,10 @@
-.gitignore
-.venv/
-.vscode/
-.env
- 
-**/__pycache__/
-instance/
+ .venv/
+ .vscode/
+ __pycache__
+ instance/
+ src/data/
 
-src/upload/*
-src/data/azubis.csv
-src/data/ausbilder.csv
-logs/untis.log
+.env
+.venv/*
+src/__pycache__/
+.gitignore
