@@ -1,5 +1,10 @@
+<!-- Überprüft durch Claude 4 -->
+ 
 {% extends "base.html" %}
 {% block content %}
+<div id="api-config"
+     data-freie-zeiten-url="{{ url_for('main.freie_zeiten', berater_id=0) }}">
+</div>
 <h3>Anmeldung: <br>
     <span>als Ausbildungsbetrieb oder Erziehungsberechtigte</span>
 </h3>
@@ -15,7 +20,7 @@
             </div>
             <div class="field ">
                 {{ form.uhrzeit_id.label }}
-                {{ form.uhrzeit_id(class="form-control", disabled=True,) }}
+                {{ form.uhrzeit_id(class="form-control") }}
             </div>
         </div>
         <div class="grid">
@@ -40,15 +45,20 @@
 <script>
     const beraterSelect = document.getElementById('berater_id');
     const uhrzeitSelect = document.getElementById('uhrzeit_id');
+    const baseUrl = document.getElementById('api-config').dataset.freieZeitenUrl.replace('/0', '');
 
-    // Wird ausgeführt, sobald sich das Dropdown der Personen ändert
     beraterSelect.addEventListener('change', function () {
         const beraterId = this.value;
 
         if (beraterId) {
             // Bei unserem Flask-Server nachfragen
-            fetch(`/api/freie_zeiten/${beraterId}`)
-                .then(response => response.json())
+            
+
+                 fetch(`${baseUrl}/${beraterId}`)
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    return response.json();
+                })
                 .then(zeiten => {
                     // Altes Dropdown leeren
                     uhrzeitSelect.innerHTML = '<option value="" disabled selected>Bitte Uhrzeit wählen...</option>';

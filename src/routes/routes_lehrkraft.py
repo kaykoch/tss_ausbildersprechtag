@@ -1,3 +1,7 @@
+# ------------------------------------------------------------------------------
+# Überprüft durch Claude 4
+# ------------------------------------------------------------------------------
+
 import logging
 
 from flask import (
@@ -10,16 +14,15 @@ from flask import (
     url_for,
 )
 from flask.typing import ResponseReturnValue
-from markupsafe import Markup
 
 from src.extensions import state
 from src.forms import BeraterForm, BuchungShowForm
 from src.models import Berater
 from src.services.berater_service import _create_berater, _update_berater, get_berater_by_token_or_abort
-from src.services.buchung_service import _delete_buchung, _get_buchung_by_token
-from src.services.mail_service import _send_anmeldung_mail_to_berater
+from src.services.buchung_service import _get_buchung_by_token, delete_buchung
+from src.services.mail_service import send_anmeldung_mail_to_berater
 from src.services.pdf_service import _export_to_pdf
-from src.utils.auth import _requires_auth
+from src.utils.auth import requires_auth
 from src.utils.helpers import flash_form_errors
 
 
@@ -47,7 +50,7 @@ _ALLOWED_ROLES_TSS: frozenset[str] = frozenset({"admin", "tss"})
 
 
 @lehrkraft_bp.route("/", methods=["GET", "POST"])
-@_requires_auth(_ALLOWED_ROLES_TSS)
+@requires_auth(_ALLOWED_ROLES_TSS)
 def route_lehrkraft() -> ResponseReturnValue:
     """Zeigt alle administrativen Aufgaben auf einer Webseite."""
     berater_token: str | None = request.values.get("token")
@@ -57,7 +60,6 @@ def route_lehrkraft() -> ResponseReturnValue:
         return render_template(
             _TEMPLATE_LEHRKRAFT,
             title=_TITLE_LEHRKRAFT,
-            sprechtag=state.sprechtag,
             berater=berater,
         )
 
@@ -65,7 +67,7 @@ def route_lehrkraft() -> ResponseReturnValue:
 
 
 @lehrkraft_bp.route("/lehrkraft_anmeldung.html", methods=["GET", "POST"])
-@_requires_auth(_ALLOWED_ROLES_TSS)
+@requires_auth(_ALLOWED_ROLES_TSS)
 def route_lehrkraftanmeldung() -> ResponseReturnValue:
     """Zeigt die Anmeldeseite für Lehrkräfte und deren Einstellungen."""
     berater_token: str | None = request.values.get("token")
@@ -82,12 +84,11 @@ def route_lehrkraftanmeldung() -> ResponseReturnValue:
         _TEMPLATE_ANMELDUNG,
         title=_TITLE_ANMELDUNG,
         form=form,
-        sprechtag=state.sprechtag,
     )
 
 
 @lehrkraft_bp.route("/buchungen.html", methods=["GET", "POST"])
-@_requires_auth(_ALLOWED_ROLES_TSS)
+@requires_auth(_ALLOWED_ROLES_TSS)
 def route_buchungenanzeige() -> ResponseReturnValue:
     """Zeigt alle Buchungen einer Lehrkraft an."""
     berater_token: str | None = request.values.get("token")
@@ -105,7 +106,6 @@ def route_buchungenanzeige() -> ResponseReturnValue:
         _TEMPLATE_BUCHUNGEN,
         title=_TITLE_BUCHUNGEN,
         form=form,
-        sprechtag=state.sprechtag,
         berater=berater,
     )
 
@@ -118,15 +118,20 @@ def route_buchungenanzeige() -> ResponseReturnValue:
 def _handle_anmeldung_submit(form: BeraterForm, berater: Berater | None) -> ResponseReturnValue:
     """Verarbeitet das abgeschickte Anmeldeformular (Erstanlage oder Update)."""
     try:
-        berater_name = f"Berater: {berater.berater_vorname} {berater.berater_nachname}"
         if berater:
             _update_berater(form, berater)
-            flash(Markup(f"{berater_name} wurde erfolgreich aktualisiert"), "success")
+            flash(
+                f"Berater: {berater.berater_vorname} {berater.berater_nachname} wurde erfolgreich aktualisiert",
+                "success",
+            )
 
         else:
             berater = _create_berater(form)
-            flash(Markup(f"{berater_name}  wurde erfolgreich eingefügt"), "success")
-            mail_info, mail_result = _send_anmeldung_mail_to_berater(berater)
+            flash(
+                f"Berater: {berater.berater_vorname} {berater.berater_nachname} wurde erfolgreich eingefügt",
+                "success",
+            )
+            mail_info, mail_result = send_anmeldung_mail_to_berater(berater)
             flash(mail_info, mail_result)
 
         return redirect(url_for("tss.route_lehrkraftanmeldung", token=berater.token))
@@ -159,8 +164,17 @@ def _handle_buchung_download(berater: Berater) -> ResponseReturnValue:
     )
 
 
-# routes_lehrkraft.py
-def _handle_buchung_delete(form: BuchungShowForm, berater_token: str) -> ResponseReturnValue:
+def _handle_buchung_delete(form: BuchungShowForm, berater_token: str | None) -> ResponseReturnValue:
+    """Löscht eine einzelne Buchung anhand des Buchungs-Tokens aus dem Formular
+
+    Args:
+        form (BuchungShowForm): Flask Form mit Buchungsdaten
+        berater_token (str): Token des Beraters
+
+    Returns:
+        ResponseReturnValue: Antwort der App
+    """
+    # Antwort Seite mit Token des Beraters, um seine wieder Daten anzeigen zu können
     redirect_url = url_for("tss.route_buchungenanzeige", token=berater_token)
 
     if not form.buchung_token.data:
@@ -174,7 +188,7 @@ def _handle_buchung_delete(form: BuchungShowForm, berater_token: str) -> Respons
 
     info = f"{buchung.betrieb_name} um {buchung.uhrzeit_id}h"
     try:
-        _delete_buchung(buchung)  # ← Service übernimmt DB
+        delete_buchung(buchung)  # ← Service übernimmt DB
         flash(f"Buchung: {info} wurde erfolgreich gelöscht.", "success")
     except Exception as e:
         logger.error("Fehler beim Löschen der Buchung (%s): %s", info, e)

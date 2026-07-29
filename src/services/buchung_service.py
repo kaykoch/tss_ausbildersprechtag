@@ -1,4 +1,9 @@
-from datetime import datetime, timedelta
+# ------------------------------------------------------------------------------
+# Überprüft durch Claude 4
+# ------------------------------------------------------------------------------
+
+
+from datetime import UTC, datetime, timedelta
 import logging
 
 from src.extensions import state
@@ -10,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 def _delete_old_orders() -> None:
     """Löscht nicht bestätigte Buchungen, die älter als die konfigurierte Wartezeit sind."""
-    cutoff = datetime.now() - timedelta(minutes=state.app.config["SPRECHTAG_WARTEZEIT"])
+    cutoff = datetime.now(UTC) - timedelta(minutes=state.infos.sprechtag.sprechtag_wartezeit)
     try:
         stmt = state.db.delete(Buchung).where(Buchung.bestaetigt.is_(False)).where(Buchung.erstellt_um < cutoff)
         result = state.db.session.execute(stmt)
@@ -31,6 +36,10 @@ def _generiere_zeiten(dauer: int = 15) -> list[str]:
     Returns:
         Liste mit Uhrzeiten, z. B. ["16:00", "16:15", ...].
     """
+    if state.sprechtag is None:
+        logger.error("_generiere_zeiten: state.sprechtag ist nicht gesetzt.")
+        return []
+
     zeiten = []
     start = datetime.strptime(state.sprechtag.beginn, "%H:%M")
     ende = datetime.strptime(state.sprechtag.ende, "%H:%M")
@@ -52,7 +61,7 @@ def _get_gebuchte_zeiten(berater_id: int) -> list[str]:
         Liste gebuchter Uhrzeiten, z. B. ["16:30", "17:15"].
     """
     stmt = state.db.select(Buchung.uhrzeit_id).filter_by(berater_id=berater_id)
-    return state.db.session.execute(stmt).scalars().all()
+    return list(state.db.session.execute(stmt).scalars().all())
 
 
 def _get_freie_zeiten_fuer_berater(berater_id: int) -> list[str]:
@@ -66,6 +75,9 @@ def _get_freie_zeiten_fuer_berater(berater_id: int) -> list[str]:
     """
     stmt = state.db.select(Berater.berater_dauer).filter_by(berater_id=berater_id)
     dauer = state.db.session.execute(stmt).scalars().first()
+    if dauer is None:
+        logger.warning("_get_freie_zeiten_fuer_berater: Kein Berater mit ID %d gefunden.", berater_id)
+        return []
 
     alle_zeiten = _generiere_zeiten(dauer)
     gebuchte_zeiten = set(_get_gebuchte_zeiten(berater_id))
@@ -73,18 +85,24 @@ def _get_freie_zeiten_fuer_berater(berater_id: int) -> list[str]:
     return [z for z in alle_zeiten if z not in gebuchte_zeiten]
 
 
-def _delete_buchung(buchung: Buchung) -> None:
-    """löscht eine Buchung
+def delete_buchung(buchung: Buchung) -> None:
+    """Löscht eine Buchung
 
     Args:
         buchung (Buchung): zu löschende Buchung
     """
-    state.db.session.delete(buchung)
-    state.db.session.commit()
+    try:
+        state.db.session.delete(buchung)
+        state.db.session.commit()
+
+    except Exception as e:
+        state.db.session.rollback()
+        logger.error("Fehler beim Löschen der Buchung: %s", e)
+        raise
 
 
 def _get_buchung_by_token(token: str) -> Buchung | None:
-    """liefert eine Buchung aufgrund seines tokens
+    """Liefert eine Buchung aufgrund seines tokens
 
     Args:
         token (str): Token der Buchung

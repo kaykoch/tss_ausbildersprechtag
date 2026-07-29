@@ -1,11 +1,13 @@
+<!-- Überprüft durch Claude 4 -->
+ 
 {% extends "base.html" %}
 {% block content %}
 
 <h3>Registrierte Lehrkräfte</h3>
 <form id="globalActionForm"  method="POST">
   {{ form.csrf_token }}
-  {{ form.action }}
-  {{ form.token }}
+  {{ form.action(id="form_action") }}
+  {{ form.token(id="form_token") }}
 
   <table class="ausbilder">
     <thead>
@@ -75,6 +77,10 @@
         </td>
         
       </tr>
+      {% else %}
+      <tr>
+          <td colspan="5">Keine Lehrkräfte registriert.</td>
+      </tr>
       {% endfor %}
 
     </tbody>
@@ -93,7 +99,7 @@
     document.getElementById('form_action').value = action;
    
   
-    // Das Formular absendenglobalActionForm
+    // Das Formular absenden
     document.getElementById('globalActionForm').submit();
   }
 </script>

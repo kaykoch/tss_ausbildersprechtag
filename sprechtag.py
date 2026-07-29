@@ -17,9 +17,6 @@
 *
 """
 
-from src.app import app
-
-
 __author__ = "Kay Koch"
 __copyright__ = "Copyright 2026, TSS-Bitburg"
 __credits__ = ["Gemini"]
@@ -31,7 +28,28 @@ __status__ = "Production"
 
 
 # ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
+# ruff: noqa: E402
+from dotenv import load_dotenv
+
+
+load_dotenv()
+from src.app import create_app
+from src.config import BaseConfig
+
+
+__author__ = "Kay Koch"
+__copyright__ = "Copyright 2026, TSS-Bitburg"
+__credits__ = ["Gemini", "Claude 4"]
+__license__ = "GPL"
+__version__ = "3.0"
+__maintainer__ = "Kay Koch"
+__email__ = "koch@tssbit.de"
+__status__ = "Production"
+
+
+app = create_app(BaseConfig)
 
 if __name__ == "__main__":
     app.run(debug=True)

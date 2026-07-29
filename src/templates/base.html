@@ -1,3 +1,5 @@
+<!-- Überprüft durch Claude 4 -->
+
 <!doctype html>
 <html lang="de">
 
@@ -12,14 +14,12 @@
   <body>
     <div class="container">
       <header class="hdr">
-        <h1 class="title">Theobald-Simon-Schule Bitburg</h1>
+        <h1 class="title">{{ school_name }}</h1>
         <div class="logo"><img src="{{ url_for('static', filename='logo.png') }}" alt="Logo"></div>
       </header>
       
-      {%  if sprechtag%}
-      <h4>Ausbilder- und Elternsprechtag:  {{sprechtag.tag}}   ({{sprechtag.beginn}}h - {{sprechtag.ende}}h) </h4>
-      {% endif %}
-
+      <h4>{{ sprechtag_title }}</h4>
+      
       {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
       {% for category, message in messages %}
@@ -41,7 +41,7 @@
       </div>
       <div class="under_footer">
         <a href="{{ url_for('main.route_impressum') }}"  target="_blank">Impressum</a> |
-        <a href="/static/Dokumentation.pdf" target="_blank">Dokumentation</a> |
+        <a href="{{ url_for('static', filename='Dokumentation.pdf') }}" target="_blank">Dokumentation</a> |
         <a href="https://github.com/kaykoch/tss_ausbildersprechtag" target="_blank">GitHub</a>
       </div>
     </div>

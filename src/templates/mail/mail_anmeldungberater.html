@@ -1,7 +1,8 @@
+<!-- Überprüft durch Claude 4 -->
+ 
 {% extends "mail/base_mail.html" %}
 {% block content %}
 
-<body>
   <div class="header">
     <h2>Registrierung — Ausbildersprechtag TSS Bitburg</h2>
   </div>
@@ -20,19 +21,19 @@
         </tr>
         <tr>
           <td>Raum:</td>
-          <td>{{ berater.berater_raum }} Uhr</td>
+          <td>{{ berater.berater_raum }}</td>
         </tr>
         <tr>
-          <td>Dauer einers Termins:</td>
+          <td>Dauer eines Termins:</td>
           <td>{{ berater.berater_dauer }} min</td>
         </tr>
         <tr>
-          <td>Bei Anmeldung,Benachrichtigung:</td>
+          <td>Benachrichtigung bei Anmeldung:</td>
           <td>{% if berater.berater_will_mail %} Ja {% else %} Nein {% endif %}</td>
         </tr>
       </table>
     </div>
-   <p>Klicken Sie auf den folgenden Button, um Ihren Daten zu ändern und ihre Angemeldeten Termin anzusehen</p>
+   <p>Klicken Sie auf den folgenden Button, um Ihren Daten zu ändern und ihre angemeldeten Termin anzusehen</p>
 
     <a class="btn btn-primary " href="{{ server_url }}/tss/?token={{ berater.token }}">
       Daten ändern / Termin einsehen
@@ -43,5 +44,4 @@
     </div>
   </div>
 
-</body>
 {% endblock %}

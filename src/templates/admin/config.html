@@ -4,7 +4,7 @@
 <h3>Konfiguration</h3>
 <form method="POST">
     {{ form.csrf_token }}
-    <h2>Admin Zugang</h2>
+    <h2>Logins und Passwörter</h2>
     <div class="grid">
         <div class="field">
             {{ form.admin_login.label }}
@@ -17,13 +17,7 @@
             <!-- Aufruf der JS-Funktion direkt beim Klick -->
             <span onclick="togglePasswordVisibility('password-field_1', this)" style="cursor: pointer;"> 👁️ </span>
         </div>
-    </div>
-    <h2>Lehrkräfte Zugang</h2>
-    <div class="grid">
-        <div class="field">
-            {{ form.tss_login.label }}
-            {{ form.tss_login(class="form-control") }}
-        </div>
+
         <div class="field password">
             {{ form.tss_password.label }} 
             {{ form.tss_password(id="password-field_2", class="form-control") }}
@@ -37,10 +31,6 @@
             {{ form.sprechtag_termin(class="form-control") }}
         </div>
         <div class="field">
-            {{ form.sprechtag_wartezeit.label }}
-            {{ form.sprechtag_wartezeit(class="form-control") }}
-        </div>
-        <div class="field">
             {{ form.sprechtag_beginn.label }}
             {{ form.sprechtag_beginn(class="form-control") }}
         </div>
@@ -48,39 +38,32 @@
             {{ form.sprechtag_ende.label }}
             {{ form.sprechtag_ende(class="form-control") }}
         </div>
-
     </div>
 
     <h2>Mailserver</h2>
     <div class="grid">
         <div class="field">
-            {{ form.mail_server.label }}
+            {{ form.mail_server.label }} 
             {{ form.mail_server(class="form-control") }}
         </div>
         <div class="field">
-            {{ form.mail_port.label }}
+            {{ form.mail_port.label }} 
             {{ form.mail_port(class="form-control") }}
         </div>
-        <div class="field"><label></label></div>
 
         <div class="field">
-            {{ form.mail_use_ssl.label }}
-            {{ form.mail_use_ssl(class="form-control") }}
+            {{ form.mail_encryption.label }} 
+            {{ form.mail_encryption(class="form-control") }}
         </div>
-        <div class="field">
-            {{ form.mail_use_tls.label }}
-            {{ form.mail_use_tls(class="form-control") }}
-        </div>
-        <div class="field"><label></label></div>
 
         <div class="field">
-            {{ form.mail_username.label }}
+            {{ form.mail_username.label }} 
             {{ form.mail_username(class="form-control") }}
         </div>
         <div class="field password">
             {{ form.mail_password.label }} 
             {{ form.mail_password(id="password-field_3", class="form-control") }}
-            <span onclick="togglePasswordVisibility('password-field_3', this)" style="cursor: pointer;"> 👁️ </span>
+            <span onclick="togglePasswordVisibility('password-field_3', this)" > 👁️ </span>
         </div>
         <div class="field">
             {{ form.mail_default_sender.label }}

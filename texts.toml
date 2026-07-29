@@ -1,0 +1,47 @@
+# texts.toml
+# Alle anpassbaren Texte der Anwendung
+# Kann vom Admin ohne Python-Kenntnisse bearbeitet werden.
+
+# Kontaktperson, die auf den Seiten angezeigt wird
+[kontaktperson]
+nachname      = "Koch"
+vorname       = "Kay"
+mail          = "koch@tssbit.de"
+komplett      = "OStR Kay Koch (koch@tssbit.de)" 
+
+# Name der Schule, die auf den Seiten angezeigt wird. Das Logo kann im Ordner static geändert werden
+# Vollständige Domain, auf die der Dienst läuft
+# Loginname der Lehrkräfte. Passwort wird in der DB geändert
+[schule]
+name           = "Theobald-Simon-Schule"
+url            = "https://sprechtag.tss-bitburg.de"
+lehrkraftlogin = "tssbit"
+
+[sprechtag]
+sprechtag_wartezeit = 17
+sprechtag_titel = "Ausbilder- und Elternsprechtag: "
+
+
+# Texte, die auf den Seiten für die Betriebe angezeigt werden
+[content]
+index = """
+    <p>
+        Tragen Sie zuerst Ihre Kontaktdaten ein und wählen Sie eine Anzahl aus – 
+        ruhig etwas mehr als nötig. Nicht alle Felder müssen ausgefüllt werden, 
+        also einfach drauflostippen, ohne vorher zu zählen. <br> 
+        Geben Sie anschließend die Untis-Profilnamen Ihrer Azubis ein – 
+        diese erfragen Sie bitte direkt bei Ihren Auszubildenden.
+        Möchten Sie später weitere Azubis hinzufügen, nutzen Sie einfach den Link aus Ihrer Bestätigungsmail. 
+        Eine erneute Passworteingabe ist dann nicht nötig.
+    </p>
+    <p>
+        Weitere Informationen finden Sie <a href='/static/info.pdf') target='_blank' >HIER</a>
+    </p>
+    """
+                
+azubimitausbilder =  """
+    <p>
+        Für Ihren Betrieb sind die folgenden Schüler mit Ihrer Mailadresse verbunden.<br> 
+        Bitte überprüfen Sie ihre Namen.                           
+    </p>
+    """

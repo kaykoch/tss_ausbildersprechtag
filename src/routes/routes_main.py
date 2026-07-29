@@ -1,3 +1,7 @@
+# ------------------------------------------------------------------------------
+# Überprüft durch Claude 4
+# ------------------------------------------------------------------------------
+
 import logging
 
 from flask import (
@@ -11,14 +15,20 @@ from flask import (
 )
 from flask.typing import ResponseReturnValue
 from markupsafe import Markup
+from sqlalchemy.orm import joinedload
 
 from src.extensions import state
 from src.forms import BuchungForm
 from src.models import Berater, Buchung
-from src.services.berater_service import _get_berater_liste
-from src.services.buchung_service import _delete_old_orders, _get_freie_zeiten_fuer_berater, _get_gebuchte_zeiten
-from src.services.mail_service import _send_mail_to_berater, _send_mail_to_bucher
-from src.utils.helpers import _copy_model_attributes
+from src.services.berater_service import _get_berater_liste, get_berater_by_id
+from src.services.buchung_service import (
+    _delete_old_orders,
+    _get_freie_zeiten_fuer_berater,
+    _get_gebuchte_zeiten,
+    delete_buchung,
+)
+from src.services.mail_service import send_mail_to_berater, send_mail_to_bucher
+from src.utils.helpers import _copy_model_attributes, flash_form_errors
 
 
 logger = logging.getLogger(__name__)
@@ -54,7 +64,6 @@ _MSG_CONFIRM_INFO = (
 def index() -> ResponseReturnValue:
     """Startseite – Buchungsformular anzeigen und verarbeiten."""
     _delete_old_orders()
-
     berater_liste = _get_berater_liste()
     form = _init_buchung_form(berater_liste)
 
@@ -65,7 +74,7 @@ def index() -> ResponseReturnValue:
     return _render_index(form, berater_liste)
 
 
-@main_bp.route("/bestaetigung.html", methods=["GET"])
+@main_bp.route("/bestaetigung", methods=["GET"])
 def bestaetigung() -> ResponseReturnValue:
     """Buchung wird durch Aufruf bestätigt oder gelöscht."""
     token = request.args.get("token")
@@ -82,9 +91,8 @@ def bestaetigung() -> ResponseReturnValue:
     try:
         buchung = _load_buchung_by_token(token)
         if buchung is None:
-            flash(f"Buchung mit Token {token} existiert nicht.", "error")
+            flash("Diese Buchung existiert nicht oder ist abgelaufen.", "error")
             return _render_bestaetigung(buchung=None)
-
         buchung = _handle_bestaetigung_action(action, token, buchung)
 
     except Exception as e:
@@ -97,12 +105,14 @@ def bestaetigung() -> ResponseReturnValue:
 
 
 @main_bp.route("/api/freie_zeiten/<int:berater_id>")
+@state.limiter.limit("30 per minute")
 def freie_zeiten(berater_id: int) -> ResponseReturnValue:
     """API – Gibt freie Zeiten für einen Berater zurück."""
     return jsonify(_get_freie_zeiten_fuer_berater(berater_id))
 
 
 @main_bp.route("/api/gebuchte_zeiten/<int:berater_id>")
+@state.limiter.limit("30 per minute")
 def gebuchte_zeiten(berater_id: int) -> ResponseReturnValue:
     """API – Gibt gebuchte Zeiten für einen Berater zurück."""
     return jsonify(_get_gebuchte_zeiten(berater_id))
@@ -140,8 +150,7 @@ def _handle_buchung_post(form: BuchungForm, berater_liste: list[Berater]) -> Res
     if form.validate_on_submit():
         return _process_buchung(form)
 
-    logger.error("Formular-Fehler in index: %s", form.errors)
-    flash(str(form.errors), "error")
+    flash_form_errors("index", form)
     return _render_index(form, berater_liste)
 
 
@@ -169,16 +178,22 @@ def _process_buchung(form: BuchungForm) -> ResponseReturnValue:
 
     buchung = Buchung()
     form.populate_obj(buchung)
-    state.db.session.add(buchung)
-    state.db.session.commit()
+    try:
+        state.db.session.add(buchung)
+        state.db.session.commit()
+
+    except Exception as e:
+        state.db.session.rollback()
+        logger.error("Fehler beim Speichern der Buchung: %s", e)
+        flash("Fehler beim Speichern der Buchung.", "error")
+        return redirect(url_for("main.index"))
 
     flash(
         f"Termin gebucht für: {berater.berater_vorname} {berater.berater_nachname} um {uhrzeit_id}h",
         "success",
     )
-    info, result = _send_mail_to_bucher(buchung)
+    info, result = send_mail_to_bucher(buchung)
     flash(info, result)
-
     return redirect(url_for("main.index"))
 
 
@@ -188,7 +203,6 @@ def _render_index(form: BuchungForm, berater_liste: list[Berater]) -> ResponseRe
         _TEMPLATE_INDEX,
         title=_TITLE_INDEX,
         berater_liste=berater_liste,
-        sprechtag=state.sprechtag,
         form=form,
     )
 
@@ -200,7 +214,7 @@ def _render_index(form: BuchungForm, berater_liste: list[Berater]) -> ResponseRe
 
 def _load_buchung_by_token(token: str) -> Buchung | None:
     """Lädt eine Buchung anhand ihres Tokens."""
-    stmt = state.db.select(Buchung).where(Buchung.token == token)
+    stmt = state.db.select(Buchung).options(joinedload(Buchung.berater)).where(Buchung.token == token)
     return state.db.session.execute(stmt).scalars().first()
 
 
@@ -209,19 +223,26 @@ def _handle_bestaetigung_action(action: str, token: str, buchung: Buchung) -> Bu
     match action:
         case "confirm":
             buchung.bestaetigt = True
-            state.db.session.commit()
-            _send_mail_to_berater(buchung)
+            try:
+                state.db.session.commit()
+            except Exception as e:
+                state.db.session.rollback()
+                logger.error("Fehler beim Bestätigen der Buchung: %s", e)
+                raise
+            send_mail_to_berater(buchung, buchung.berater)
             flash(Markup(_MSG_CONFIRM_INFO), "warning")
             return buchung
 
         case "delete":
+            # Kopie von buchung zur Ausgabe nach dem Löschen
             buchung_data = _copy_model_attributes(buchung)
-            stmt = state.db.delete(Buchung).where(Buchung.token == token)
-            state.db.session.execute(stmt)
-            state.db.session.commit()
-            _send_mail_to_berater(buchung_data, True)
+            berater = get_berater_by_id(buchung.berater_id)
+
+            delete_buchung(buchung)
+
+            send_mail_to_berater(buchung_data, berater, True)
             flash("Der Termin wurde gelöscht und wieder frei gegeben.", "warning")
-            return None
+            return buchung_data
 
         case _:
             logger.warning("Ungültige Aktion: %s", action)
@@ -235,5 +256,4 @@ def _render_bestaetigung(buchung: Buchung | None, title: str = _TITLE_BESTAETIGU
         _TEMPLATE_BESTAETIGUNG,
         title=title,
         buchung=buchung,
-        sprechtag=state.sprechtag,
     )

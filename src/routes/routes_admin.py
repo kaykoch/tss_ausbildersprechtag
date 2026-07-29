@@ -1,3 +1,7 @@
+# ------------------------------------------------------------------------------
+# Überprüft durch Claude 4
+# ------------------------------------------------------------------------------
+
 import logging
 
 from flask import (
@@ -19,9 +23,9 @@ from src.forms import BeraterShowForm, ConfigForm
 from src.models import ConfigSetting
 from src.services.berater_service import _get_berater_liste, delete_berater, get_berater_by_token_or_abort
 from src.services.config_service import load_config, load_defaults
-from src.services.crypto_service import _encrypt_password
-from src.services.mail_service import _send_anmeldung_mail_to_berater
-from src.utils.auth import _requires_auth
+from src.services.crypto_service import get_encrypted_mail_password
+from src.services.mail_service import send_anmeldung_mail_to_berater
+from src.utils.auth import requires_auth
 from src.utils.helpers import flash_form_errors
 
 
@@ -55,18 +59,17 @@ _BERATER_DEFAULT_RESULT = "warning"
 
 
 @admin_bp.route("/", methods=["GET", "POST"])
-@_requires_auth("admin")
+@requires_auth("admin")
 def route_admin() -> ResponseReturnValue:
     """Zeigt alle administrativen Aufgaben auf einer Webseite."""
     return render_template(
         _TEMPLATE_ADMIN,
         title=_TITLE_ADMIN,
-        sprechtag=state.sprechtag,
     )
 
 
 @admin_bp.route("/config.html", methods=["GET", "POST"])
-@_requires_auth("admin")
+@requires_auth("admin")
 def route_config() -> ResponseReturnValue:
     """Zeigt die Webseite zur Eingabe der Konfigurationsdaten an."""
     cfg = load_config()
@@ -77,13 +80,12 @@ def route_config() -> ResponseReturnValue:
         if form.validate_on_submit():
             _save_config(form, cfg)
         elif request.method == "POST":
-            flash_form_errors("error", form)
+            flash_form_errors("route_config", form)
 
         return render_template(
             _TEMPLATE_CONFIG,
             title=_TITLE_CONFIG,
             form=form,
-            sprechtag=state.sprechtag,
         )
 
     except Exception as e:
@@ -92,7 +94,7 @@ def route_config() -> ResponseReturnValue:
 
 
 @admin_bp.route("/berater.html", methods=["GET", "POST"])
-@_requires_auth("admin")
+@requires_auth("admin")
 def route_berateranzeige() -> ResponseReturnValue:
     """Zeigt die Übersicht aller Lehrkräfte an und verarbeitet Aktionen."""
     form = BeraterShowForm()
@@ -152,15 +154,12 @@ def _apply_password_fields(form: ConfigForm, cfg: ConfigSetting) -> None:
 
     # 2. Mail-Passwort VERSCHLÜSSELN (Two-Way)
     if form.mail_password.data:
-        # Hole den Master-Key aus den Umgebungsvariablen der app (config.py)
-        secret_key = state.app.config["ENCRYPTION_KEY"]
-
-        if secret_key:
-            cfg.mail_password = _encrypt_password(form.mail_password.data, secret_key)
+        encrypted = get_encrypted_mail_password(form.mail_password.data)
+        if encrypted is None:
+            logger.error("E-Mail-Passwort konnte nicht verschlüsselt werden.")
+            flash("Fehler: Mail-Passwort konnte nicht verschlüsselt werden.", "error")
         else:
-            # Sicherheits-Fallback, falls du den Key vergessen hast einzurichten
-            logger.error("E-Mail-Passwort konnte nicht verschlüsselt werden: ENCRYPTION_KEY fehlt!")
-            flash("Fehler: Verschlüsselungs-Key nicht konfiguriert.", "error")
+            cfg.mail_password = encrypted
 
 
 # ------------------------------------------------------------------------------
@@ -182,7 +181,7 @@ def _handle_berater_action(form: BeraterShowForm) -> ResponseReturnValue | None:
         case "show":
             return redirect(url_for("tss.route_buchungenanzeige", token=berater.token))
         case "send":
-            info, result = _send_anmeldung_mail_to_berater(berater)
+            info, result = send_anmeldung_mail_to_berater(berater)
         case "delete":
             info, result = delete_berater(berater)
 

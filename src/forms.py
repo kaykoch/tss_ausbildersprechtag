@@ -1,5 +1,5 @@
 # ------------------------------------------------------------------------------
-#  FORMULARE
+# Überprüft durch Claude 4
 # ------------------------------------------------------------------------------
 
 from datetime import datetime
@@ -19,6 +19,7 @@ from wtforms import (
     SubmitField,
 )
 from wtforms.validators import (
+    AnyOf,
     DataRequired,
     Email,
     Length,
@@ -34,36 +35,46 @@ from wtforms.validators import (
 # ------------------------------------------------------------------------------
 
 _EMAIL_VALIDATOR = Email(message="Bitte geben Sie eine gültige E-Mail-Adresse ein.")
-_EMAIL_LENGTH = Length(max=100)
+_EMAIL_LENGTH = Length(max=255)
 _NAME_LENGTH = Length(max=100)
-_PASSWORD_LENGTH = Length(min=4, max=15)
+_PASSWORD_LENGTH_ADMIN = Length(min=4, max=15)
+_PASSWORD_LENGTH_SMTP = Length(min=1, max=255)
 _ID_VALIDATORS = [Optional(), Length(max=36), Regexp(r"^\d+$")]
 
-_TIME_PLACEHOLDER = "z.B.: 16:00h"
+_TIME_PLACEHOLDER = "z.B.: 16:00"
 
 
 # ------------------------------------------------------------------------------
-# Filter
+# Hilfsfunktionen
 # ------------------------------------------------------------------------------
+def email_validators() -> list:
+    """Gibt eine neue Liste mit Standard-E-Mail-Validatoren zurück.
+
+    Jeder Aufruf erzeugt eine eigene Instanz, um mutable shared state zu vermeiden.
+
+    Returns:
+        Liste mit DataRequired, Email und Length-Validator.
+    """
+    return [
+        DataRequired(message="Bitte geben Sie eine E-Mail-Adresse ein."),
+        Email(message="Bitte geben Sie eine gültige E-Mail-Adresse ein."),
+        Length(max=255),
+    ]
 
 
-def normalize_whitespace(value: str | None) -> str:
+def normalize_whitespace(value: str | None) -> str | None:
     """Bereinigt einen String: trimmt Ränder und reduziert Leerzeichen auf eines.
 
     Args:
         value: Eingabewert aus dem Formularfeld.
 
     Returns:
-        Bereinigter String, oder "" wenn der Eingabewert None war.
+        Bereinigter String oder None, wenn der Eingabewert None war.
     """
     if value is None:
-        return ""
-    return re.sub(r"\s+", " ", str(value).strip())
-
-
-# ------------------------------------------------------------------------------
-# Validatoren
-# ------------------------------------------------------------------------------
+        return None
+    result = re.sub(r"\s+", " ", str(value).strip())
+    return result or None  # "" → None → DataRequired() schlägt an
 
 
 def validate_time_format(form: FlaskForm, field: Field) -> None:
@@ -76,8 +87,10 @@ def validate_time_format(form: FlaskForm, field: Field) -> None:
     Raises:
         ValidationError: Wenn der Wert kein gültiges HH:MM-Format hat.
     """
+    if field.data in (None, ""):
+        return  # von Optional() abgedeckt; ohne Optional nicht validieren
     try:
-        datetime.strptime(field.data.strip(), "%H:%M")
+        datetime.strptime(str(field.data).strip(), "%H:%M")
     except ValueError as e:
         raise ValidationError(
             f"'{field.label.text}' enthält keine Uhrzeit. Bitte prüfe das Format (z. B.: 12:00)."
@@ -92,22 +105,31 @@ def validate_time_format(form: FlaskForm, field: Field) -> None:
 class ConfigForm(FlaskForm):
     """Konfigurationsformular für Admin-, Lehrkraft-, Mail- und Sprechtag-Einstellungen."""
 
-    # Admin-Zugangsdaten
-    admin_login = StringField("Admin Login", validators=[Optional(), _PASSWORD_LENGTH])
-    admin_password = PasswordField("Admin Passwort", validators=[Optional(), _PASSWORD_LENGTH])
+    # Admin
+    admin_login = StringField("Admin Login", validators=[Optional(), Length(min=3, max=100)])
+    admin_password = PasswordField("Admin Passwort", validators=[Optional(), _PASSWORD_LENGTH_ADMIN])
+    tss_password = PasswordField("Lehrkraft Passwort", validators=[Optional(), _PASSWORD_LENGTH_ADMIN])
 
-    # Lehrkraft-Zugangsdaten
-    tss_login = StringField("Lehrkraft Login", validators=[Optional(), _PASSWORD_LENGTH])
-    tss_password = PasswordField("Lehrkraft Passwort", validators=[Optional(), _PASSWORD_LENGTH])
-
-    # Mail-Server
+    # Mail-Server (Variante mit mail_encryption)
     mail_server = StringField("Mail Server", validators=[Optional(), Length(max=255)])
     mail_port = IntegerField("Mail Port", validators=[Optional(), NumberRange(min=1, max=65535)])
-    mail_use_ssl = BooleanField("Nutze SSL", validators=[Optional()])
-    mail_use_tls = BooleanField("Nutze TLS", validators=[Optional()])
-    mail_username = StringField("Mail Benutzername", validators=[Optional(), Length(max=255)])
-    mail_password = PasswordField("Mail Passwort", validators=[Optional(), Length(max=255)])
-    mail_default_sender = StringField("Standard Absender (E-Mail)", validators=[Optional(), Length(max=320)])
+    mail_encryption = SelectField(
+        "Verschlüsselung",
+        choices=[
+            ("none", "Keine Verschlüsselung (Port 25)"),
+            ("tls", "STARTTLS (Empfohlen, z. B. Port 587)"),
+            ("ssl", "SSL / Implicit TLS (z. B. Port 465)"),
+        ],
+        validators=[DataRequired(), AnyOf(["none", "tls", "ssl"])],
+        default="tls",
+    )
+    mail_username = StringField("Mail Benutzername", validators=[Optional(), _NAME_LENGTH])
+    mail_password = PasswordField("Mail Passwort", validators=[Optional(), _PASSWORD_LENGTH_SMTP])
+    mail_default_sender = StringField(
+        "Standard Absender (E-Mail)",
+        validators=[Optional(), Email(), _EMAIL_LENGTH],
+        render_kw={"placeholder": "z.B.: schulserver@example.de"},
+    )
 
     # Sprechtag
     sprechtag_termin = DateField(
@@ -134,14 +156,7 @@ class ConfigForm(FlaskForm):
             "title": "Um welche Uhrzeit findet der letzte Termin statt?",
         },
     )
-    sprechtag_wartezeit = IntegerField(
-        "Wartezeit bis zum Löschen",
-        validators=[Optional(), NumberRange(min=15, max=24 * 60)],
-        render_kw={
-            "placeholder": "z.B.: 90 (min: 15; max: 1440 → 24h)",
-            "title": "Anzahl an Minuten, nach denen eine nicht bestätigte Anmeldung gelöscht wird.",
-        },
-    )
+
     submit = SubmitField("Einstellungen speichern")
 
 
@@ -174,7 +189,7 @@ class BeraterForm(FlaskForm):
     berater_mail = EmailField(
         "E-Mail",
         filters=[normalize_whitespace],
-        validators=[Optional(), _EMAIL_VALIDATOR, _EMAIL_LENGTH],
+        validators=email_validators(),
         render_kw={"placeholder": "z.B.: john@beatles.de"},
     )
     berater_will_mail = BooleanField(
@@ -238,7 +253,7 @@ class BuchungForm(FlaskForm):
     betrieb_mail = EmailField(
         "E-Mail",
         filters=[normalize_whitespace],
-        validators=[Optional(), _EMAIL_VALIDATOR, _EMAIL_LENGTH],
+        validators=email_validators(),
         render_kw={"placeholder": "z.B.: john@beatles.de"},
     )
     submit = SubmitField("Termin buchen")

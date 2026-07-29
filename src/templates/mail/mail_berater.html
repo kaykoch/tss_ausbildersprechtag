@@ -1,14 +1,14 @@
+<!-- Überprüft durch Claude 4 -->
+ 
 {% extends "mail/base_mail.html" %}
-
 {% block content %}
 
-<body>
   <div class="header">
     <h2>Terminbestätigung — Ausbildersprechtag TSS Bitburg</h2>
   </div>
 
   <div class="content">
-    <p>Hallo {{ buchung.berater.berater_vorname }} {{buchung.berater.berater_nachname }}</p>
+    <p>Hallo {{ berater.berater_vorname }} {{berater.berater_nachname }}</p>
 
     {% if delete %}
     <p class="warning">Folgender Termin wurde gelöscht:</p>
@@ -31,11 +31,11 @@
         </tr>
         <tr>
           <td>Raum:</td>
-          <td>{{ buchung.berater.berater_raum }} </td>
+          <td>{{ berater.berater_raum }}</td>
         </tr>
         <tr>
           <td>Lehrkraft:</td>
-          <td>{{ buchung.berater.berater_vorname }} {{ buchung.berater.berater_nachname }}</td>
+          <td>{{ berater.berater_vorname }} {{ berater.berater_nachname }}</td>
         </tr>
       </table>
     </div>
@@ -46,5 +46,4 @@
     </div>
   </div>
 
-</body>
 {% endblock %}

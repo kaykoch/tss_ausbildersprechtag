@@ -1,12 +1,20 @@
+# ------------------------------------------------------------------------------
+# Überprüft durch Claude 4
+# ------------------------------------------------------------------------------
+
+
 from dataclasses import dataclass
 import logging
 from pathlib import Path
+import tomllib
 
 from flask import Flask
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_mail import Mail
 from flask_sqlalchemy import SQLAlchemy
+
+from src.utils.formatters import formatiere_datum_deutsch
 
 
 logger = logging.getLogger(__name__)
@@ -33,7 +41,7 @@ db = SQLAlchemy()
 mail = Mail()
 
 limiter = Limiter(
-    get_remote_address,
+    key_func=get_remote_address,
     default_limits=["10 per minute"],
     storage_uri="memory://",
 )
@@ -52,6 +60,18 @@ class Sprechtagdata:
     ende: str
 
 
+class TomlState:
+    """verkörpert die Texte aus einer Tomldatei"""
+
+    def __init__(self, data: dict):
+        for key, value in data.items():
+            if isinstance(value, dict):
+                # Verschachtelte Dictionaries ebenfalls umwandeln
+                setattr(self, key, TomlState(value))
+            else:
+                setattr(self, key, value)
+
+
 # ------------------------------------------------------------------------------
 # App-State
 # ------------------------------------------------------------------------------
@@ -65,25 +85,26 @@ class AppState:
     """
 
     # Datei- und Ordnernamen als Klassenkonstanten
-    _LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
+    _ROOT_DIR = Path(__file__).resolve().parent.parent
+    _LOG_DIR = _ROOT_DIR / "logs"
     _STATIC_DIR = Path(__file__).resolve().parent / "static"
     _LOG_FILE = "sprechtag.log"
+    _TOML_FILE = "texts.toml"
 
     def __init__(self) -> None:
         self.db: SQLAlchemy = db
         self.mail: Mail = mail
         self.app: Flask | None = None
-        self.limiter: Limiter | None = Limiter(
-            get_remote_address,
-            default_limits=["10 per minute"],
-            storage_uri="memory://",
-        )
+        self.limiter: Limiter = limiter
 
-        self.datafolder: Path = self._LOG_DIR
         self.staticfolder: Path = self._STATIC_DIR
         self.sprechtag: Sprechtagdata | None = None
 
         self.logfile: Path = self._ensure_file_exists(self._LOG_DIR, self._LOG_FILE)
+        self.tomlfile: Path = self._ensure_file_exists(self._ROOT_DIR, self._TOML_FILE)
+
+        # Texte aus text.toml
+        self.infos: TomlState = TomlState({})
 
     # ------------------------------------------------------------------
     # Öffentliche Setter
@@ -97,7 +118,10 @@ class AppState:
         """
         self.app = app
 
-    def set_sprechtag(self, tag: str, beginn: str, ende: str) -> None:
+        # Textbausteine laden
+        self.infos = self.load_texts(self.tomlfile)
+
+    def set_sprechtag(self) -> None:
         """Setzt die Sprechtag-Eckdaten.
 
         Args:
@@ -105,7 +129,30 @@ class AppState:
             beginn: Startzeit (z. B. "16:00").
             ende:   Endzeit   (z. B. "19:00").
         """
-        self.sprechtag = Sprechtagdata(tag=tag, beginn=beginn, ende=ende)
+
+        self.sprechtag = Sprechtagdata(
+            tag=formatiere_datum_deutsch(self.app.config.get("SPRECHTAG_TERMIN", "?")),
+            beginn=self.app.config.get("SPRECHTAG_BEGINN", "?"),
+            ende=self.app.config.get("SPRECHTAG_ENDE", "?"),
+        )
+
+    def load_texts(self, tomlfile: Path | str | None) -> TomlState:
+        """Lädt die Texte aus der TOML-Datei in den internen Cache."""
+        if tomlfile is None:
+            logger.warning("Keine TOML-Datei angegeben; verwende leere Texte.")
+            return TomlState({})
+        try:
+            with open(tomlfile, "rb") as f:
+                data = tomllib.load(f)
+            logger.info("Texte geladen aus: %s", tomlfile)
+            return TomlState(data)
+
+        except FileNotFoundError:
+            logger.error("texts.toml nicht gefunden: %s", tomlfile)
+            return TomlState({})
+        except tomllib.TOMLDecodeError:
+            logger.exception("Fehler beim Parsen von texts.toml")
+            return TomlState({})
 
     # ------------------------------------------------------------------
     # Interne Hilfsmethoden

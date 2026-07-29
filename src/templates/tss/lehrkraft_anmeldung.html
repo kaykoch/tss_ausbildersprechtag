@@ -1,46 +1,47 @@
+<!-- Überprüft durch Claude 4 -->
+ 
 {% extends "base.html" %}
-{% block title %}Anmeldung einer Lehrkraft{% endblock %}
 {% block content %}
 
 <h3>Anmeldung: <br>
     <span>als Lehrkraft</span>
 </h3>
-{{ form.action }}
 <div class="container">
     <form id="globalBeraterForm" method="POST">
         {{ form.csrf_token }}
-        {{ form.berater_token }}
+        {{ form.action }}
+        {{ form.berater_token(id="berater_token") }}
         <!-- ##########################################-->
         <div class="grid">
             <div class="field">
                 {{ form.berater_vorname.label }}
                 {{ form.berater_vorname(class="form-control") }}
             </div>
-            <div class="field ">
+            <div class="field">
                 {{ form.berater_nachname.label }}
                 {{ form.berater_nachname(class="form-control") }}
             </div>
         </div>
         <!-- ##########################################-->
         <div class="grid">
-            <div class="field ">
+            <div class="field">
                 {{ form.berater_mail.label }}
                 {{ form.berater_mail(class="form-control") }}
             </div>
 
-            <div class="field ">
+            <div class="field">
                 {{ form.berater_dauer.label }}
                 {{ form.berater_dauer(class="form-control") }}
             </div>
         </div>
         <!-- ##########################################-->
         <div class="grid">
-            <div class="field ">
+            <div class="field">
                 {{ form.berater_will_mail.label }}
                 {{ form.berater_will_mail(class="form-control") }}
             </div>
 
-            <div class="field ">
+            <div class="field">
                 {{ form.berater_raum.label }}
                 {{ form.berater_raum(class="form-control") }}
             </div>

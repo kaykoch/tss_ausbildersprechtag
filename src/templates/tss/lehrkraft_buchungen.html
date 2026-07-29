@@ -1,3 +1,5 @@
+<!-- Überprüft durch Claude 4 -->
+ 
 {% extends "base.html" %}
 {% block content %}
 
@@ -8,8 +10,9 @@
 <div class="container">
     <form id="globalBuchungForm" method="POST">
         {{ form.csrf_token }}
-        {{ form.buchung_token }}
-        {{ form.buchung_action }}
+        {{ form.buchung_token(id="buchung_token") }}
+        {{ form.buchung_action(id="buchung_action") }}
+
         <table>
             <thead>
                 <tr>
@@ -27,7 +30,7 @@
                     <td>{{ buchung.betrieb_mail }}</td>
                     <td>{{ buchung.uhrzeit_id }}</td>
                     <td>
-                        <button type="button" class="btn btn-danger  small"
+                        <button type="button" class="btn btn-danger small"
                             onclick="submitAction('{{ buchung.token }}', 'delete', 'Möchten Sie diese Buchung wirklich löschen?')">
                             löschen
                         </button>

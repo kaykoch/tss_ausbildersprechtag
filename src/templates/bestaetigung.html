@@ -1,8 +1,10 @@
+<!-- Überprüft durch Claude 4 -->
+ 
 {% extends "base.html" %}
 {% block content %}
 
 <div class="container">
-    {% if buchung %}
+    {% if buchung.berater %}
 
     <div class="info-box">
         <table>
@@ -26,26 +28,21 @@
         </table>
     </div>
     {% else %}
-    <div class="info-box">
+<div class="info-box">
         <table>
-            <caption><b>Der Termin kann nicht angezeigt werden.</b><br>
-            <span >Gründe können sein:</caption></span> </caption>
+            <caption>Buchung gelöscht:</caption>
             <tr>
-                <td>Sie haben den Termin gelöscht</td>
+                <td>Betrieb:</td>
+                <td><strong>{{ buchung.betrieb_name }}</strong></td>
             </tr>
             <tr>
-                <td>Der Termin wurde nicht gebucht</td>
+                <td>Uhrzeit:</td>
+                <td>{{ buchung.uhrzeit_id }} Uhr</td>
             </tr>
-            <tr>
-                <td>Der Termin wurde nicht rechtzeitig bestätigt
-                <dd>(max. 2 Stunden nach Buchung)</dd> </td>
-            </tr>
-            <tr>
-                <td>Der Link ist falsch
-                <dd>(/bestaetigung.html?buchung_id=XX; XX entspricht einer Zahl)</dd></td>
-            </tr>
+
         </table>
     </div>
-</div>
 {% endif %}
+</div>
+
 {% endblock %}

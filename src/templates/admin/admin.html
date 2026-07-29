@@ -1,38 +1,27 @@
-{% extends "base.html" %} 
+<!-- Überprüft durch Claude 4 -->
+ 
+{% extends "base.html" %}
 {% block content %}
 
 <h3>Administration</h3>
 <div class="container-wrapper">
-    <!-- Container 1 -->
-    <a href="{{ url_for('tss.route_lehrkraftanmeldung') }}" target="_self" class="tooltip"
+    <a href="{{ url_for('tss.route_lehrkraftanmeldung') }}" target="_blank" rel="noopener" class="tooltip"
         data-tooltip="Anmeldeseite für Lehrkräfte">
         <div class="btn btn-primary midi">Anmeldeseite</div>
     </a>
 
-
-    <!-- Container 2 -->
-    <a href="{{ url_for('admin.route_berateranzeige') }}" target="_self" class="tooltip"
+    <a href="{{ url_for('admin.route_berateranzeige') }}" target="_blank" rel="noopener" class="tooltip"
         data-tooltip="Termine anzeigen, Anmeldemail erneut versenden, Löschen ">
         <div class="btn btn-primary midi">Lehrkräfte</div>
     </a>
 </div>
 <hr>
+
 <div class="container-wrapper">
-    <!-- Container 3 -->
-    <a href="{{ url_for('admin.route_config') }}" target="_self" class="tooltip"
+    <a href="{{ url_for('admin.route_config') }}" target="_blank" rel="noopener" class="tooltip"
         data-tooltip="Termin für Sprechtag, Passwort, Mailserver etc.">
         <div class="btn btn-warning midi">Konfigurationsseite</div>
     </a>
-
-
 </div>
 
-<script>
-    document
-        .getElementById("clickable-box")
-        .addEventListener("click", function () {
-            // Formular per JavaScript absenden
-            document.getElementById("myForm").submit();
-        });
-</script>
 {% endblock %}

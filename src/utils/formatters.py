@@ -1,4 +1,8 @@
-from datetime import datetime
+# ------------------------------------------------------------------------------
+# Überprüft durch Claude 4
+# ------------------------------------------------------------------------------
+
+from datetime import date, datetime
 import logging
 
 
@@ -30,13 +34,17 @@ _MONATE = {
 }
 
 
-def formatiere_datum_deutsch(dt: datetime) -> str:
-    """Formatiert ein datetime-Objekt locale-unabhängig auf Deutsch.
+def formatiere_datum_deutsch(dt: datetime | date) -> str:
+    """Formatiert ein date- oder datetime-Objekt locale-unabhängig auf Deutsch.
 
     Args:
-        dt: Zu formatierendes datetime-Objekt.
+        dt: Zu formatierendes date- oder datetime-Objekt.
 
     Returns:
         Deutsches Datum, z. B. "Freitag, 25. Dezember 2026".
+        Bei ungültigem Typ: "unbekannt".
     """
-    return f"{_WOCHENTAGE[dt.weekday()]}, {dt.day}. {_MONATE[dt.month]} {dt.year}"
+    if isinstance(dt, (datetime, date)):
+        return f"{_WOCHENTAGE[dt.weekday()]}, {dt.day}. {_MONATE[dt.month]} {dt.year}"
+    logger.warning("formatiere_datum_deutsch: Unerwarteter Typ %s für dt=%r", type(dt).__name__, dt)
+    return "unbekannt"

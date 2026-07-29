@@ -1,11 +1,16 @@
 <!DOCTYPE html>
-<html>
+<html lang="de">
 
 <head>
-
+    <meta charset="UTF-8" />
+    <title>{{ berater.berater_nachname }}</title>
 </head>
-
 <body>
+    {% if sprechtag %}
+        <h4>Sprechtag: {{ sprechtag.tag }} ({{ sprechtag.beginn }}h - {{ sprechtag.ende }}h)</h4>
+        <hr>
+    {% endif %}
+
 
     <h2>{{ berater.berater_vorname }} {{ berater.berater_nachname }}</h2>
     <h3>Raum: {{ berater.berater_raum }}</h3>
@@ -25,6 +30,10 @@
                     <td>{{ buchung.betrieb_name }}</td>
                     <td>{{ buchung.betrieb_mail }}</td>
                     <td>{{ buchung.uhrzeit_id }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3">Keine Buchungen vorhanden.</td>
                 </tr>
                 {% endfor %}
             </tbody>

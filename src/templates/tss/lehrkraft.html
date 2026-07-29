@@ -1,16 +1,18 @@
-{% extends "base.html" %} {% block content %}
+
+ 
+{% extends "base.html" %} 
+{% block content %}
+
 <h3>Dashboard: <br>
     <span>{{berater.berater_vorname}} {{berater.berater_nachname}} ({{berater.berater_raum}})</span>
 </h3>
 <div class="container-wrapper">
-    <!-- Container 1 -->
+
     <a href="{{ url_for('tss.route_lehrkraftanmeldung', token=berater.token ) }}" target="_self" class="tooltip"
         data-tooltip="Name, Raum, etc.">
         <div class="btn btn-primary midi">Einstellungen</div>
     </a>
 
-
-    <!-- Container 2 -->
     <a href="{{ url_for('tss.route_buchungenanzeige', token=berater.token) }}" target="_self" class="tooltip"
         data-tooltip="Termine anzeigen, Termine Löschen ">
         <div class="btn btn-primary midi">Buchungen</div>

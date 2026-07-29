@@ -1,8 +1,8 @@
+<!-- Überprüft durch Claude 4 -->
+ 
 {% extends "mail/base_mail.html" %}
-
 {% block content %}
 
-<body>
 
   <div class="header">
     <h2>Terminbestätigung — Ausbildersprechtag TSS Bitburg</h2>
@@ -16,7 +16,7 @@
     </p>
 
     <div class="warning">
-      ⚠️ Bitte bestätigen Sie Ihren Termin <strong>innerhalb von 2 Stunden</strong>,
+      ⚠️ Bitte bestätigen Sie Ihren Termin innerhalb von <strong>{{time_to_wait}} Minuten</strong>,
       da er anschließend automatisch gelöscht wird.
     </div>
 
@@ -32,10 +32,10 @@
         </tr>
         <tr>
           <td>Raum:</td>
-          <td>{{ buchung.berater.berater_raum }} </td>
+          <td>{{ buchung.berater.berater_raum }}</td>
         </tr>
         <tr>
-          <td>Lehrer:</td>
+          <td>Lehrkraft:</td>
           <td>{{ buchung.berater.berater_vorname }} {{ buchung.berater.berater_nachname }}</td>
         </tr>
       </table>
@@ -43,13 +43,13 @@
 
     <p>Klicken Sie auf den folgenden Button, um Ihren Termin zu bestätigen:</p>
 
-    <a class="btn btn-primary" href="{{ server_url }}/bestaetigung.html?action=confirm&token={{ buchung.token }}">
-      ✅ Termin bestätigen
+    <a class="btn btn-primary" href="{{ url_for('main.bestaetigung', action='confirm', token=buchung.token, _external=True) }}">    
+       ✅ Termin bestätigen
     </a>
-    <p>Sollten Sie den Termin nicht wahrnehmen können, bitten wie Sie ihn zu löschen:</p>
+    <p>Sollten Sie den Termin nicht wahrnehmen können, bitten wir Sie, ihn zu löschen:</p>
 
-    <a class="btn btn-danger" href="{{ server_url }}/bestaetigung.html?action=delete&token={{ buchung.token }}">
-       ❌ Termin Löschen
+    <a class="btn btn-danger" href="{{ url_for('main.bestaetigung', action='delete', token=buchung.token, _external=True) }}">       
+       ❌ Termin löschen
     </a>
     <br>
 
@@ -58,5 +58,4 @@
     </div>
   </div>
 
-</body>
 {% endblock %}
