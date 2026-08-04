@@ -1,7 +1,8 @@
 # ------------------------------------------------------------------------------
-# Überprüft durch Claude 4
+# Überprüft durch  Claude Haiku
 # ------------------------------------------------------------------------------
 
+from __future__ import annotations
 
 from functools import wraps
 import logging

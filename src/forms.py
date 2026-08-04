@@ -1,6 +1,8 @@
 # ------------------------------------------------------------------------------
-# Überprüft durch Claude 4
+# Überprüft durch  Claude Haiku
 # ------------------------------------------------------------------------------
+
+from __future__ import annotations
 
 from datetime import datetime
 import re
