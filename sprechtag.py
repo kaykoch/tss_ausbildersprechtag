@@ -17,18 +17,7 @@
 *
 """
 
-__author__ = "Kay Koch"
-__copyright__ = "Copyright 2026, TSS-Bitburg"
-__credits__ = ["Gemini"]
-__license__ = "GPL"
-__version__ = "3.0.0"
-__maintainer__ = "Kay Koch"
-__email__ = "koch@tssbit.de"
-__status__ = "Production"
-
-
-# ------------------------------------------------------------------------------
-# ------------------------------------------------------------------------------
+# =============================================================================
 
 # ruff: noqa: E402
 from dotenv import load_dotenv
@@ -43,7 +32,7 @@ __author__ = "Kay Koch"
 __copyright__ = "Copyright 2026, TSS-Bitburg"
 __credits__ = ["Gemini", "Claude 4"]
 __license__ = "GPL"
-__version__ = "3.0"
+__version__ = "4.0"
 __maintainer__ = "Kay Koch"
 __email__ = "koch@tssbit.de"
 __status__ = "Production"
