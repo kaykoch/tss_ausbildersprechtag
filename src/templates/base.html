@@ -4,10 +4,10 @@
 <html lang="de">
 
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='style.css') }}" />
-    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}" />
+    <meta charset="UTF-8" >
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" >
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='style.css') }}" >
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}" >
     <title>{% if title %} {{title}} {% else %} Sprechtag der TSS-Bitburg {% endif %}</title>
   </head>
 
@@ -18,14 +18,13 @@
         <div class="logo"><img src="{{ url_for('static', filename='logo.png') }}" alt="Logo"></div>
       </header>
       
-      <h4>{{ sprechtag_title }}</h4>
-      
+      <h1 class="subtitle">{{ app_title }}</h1>
       {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
       {% for category, message in messages %}
       <div class="flash {{ category }}">{{ message|safe }}</div>
       {% endfor %}
-      <hr />
+      <hr>
       {% endif %}
       {% endwith %}
 
@@ -39,10 +38,14 @@
       </span>
 
       </div>
-      <div class="under_footer">
-        <a href="{{ url_for('main.route_impressum') }}"  target="_blank">Impressum</a> |
-        <a href="{{ url_for('static', filename='Dokumentation.pdf') }}" target="_blank">Dokumentation</a> |
-        <a href="https://github.com/kaykoch/tss_ausbildersprechtag" target="_blank">GitHub</a>
+      <div class="under_footer hdr">
+        <div>
+          <a href="{{ url_for('main.route_impressum') }}"  target="_blank">Impressum</a> |
+          <a href="{{ url_for('static', filename='Dokumentation.pdf') }}" target="_blank">Dokumentation</a> |
+          <a href="https://github.com/kaykoch/tss_ausbildersprechtag" target="_blank">GitHub</a>
+        </div>
+      <img style="width: 100px;" src="{{ url_for('static', filename='Valid_XHTMl.png') }}" alt="Logo">
+    </div>
       </div>
     </div>
 

@@ -1,6 +1,6 @@
 # ------------------------------------------------------------------------------
 # Überprüft durch Claude  Hailku
-# ------------------------------------------------------------------------------
+# ==============================================================================
 
 import logging
 
@@ -15,183 +15,198 @@ from flask import (
 )
 from flask.typing import ResponseReturnValue
 
-from src.extensions import state
-from src.forms import BeraterForm, BuchungShowForm
-from src.models import Berater
-from src.services.berater_service import _create_berater, _update_berater, get_berater_by_token_or_abort
-from src.services.buchung_service import _get_buchung_by_token, delete_buchung
-from src.services.mail_service import send_anmeldung_mail_to_berater
-from src.services.pdf_service import _export_to_pdf
+from src.forms import BuchungDeleteForm, BuchungShowForm, LehrkraftForm
+from src.models import Lehrkraft
+from src.services.buchung_service import delete_buchung, get_buchung_by_token_or_abort
+from src.services.lehrkraft_service import (
+    create_lehrkraft,
+    get_lehrkraft_by_token_or_abort,
+    update_lehrkraft,
+)
+from src.services.mail_service import send_anmeldung_mail_to_lehrkraft
+from src.services.pdf_service import export_to_pdf
 from src.utils.auth import requires_auth
 from src.utils.helpers import flash_form_errors
+from src.utils.roles import _ALLOWED_ROLES_TSS
 
 
 logger = logging.getLogger(__name__)
-lehrkraft_bp = Blueprint("tss", __name__)
+lehrkraft_bp = Blueprint("lehrkraft", __name__)
 
 # ------------------------------------------------------------------------------
 # Modulkonstanten
 # ------------------------------------------------------------------------------
 
 _TITLE_LEHRKRAFT = "Administration - Lehrkräfte"
-_TITLE_ANMELDUNG = "Lehrkräfte"
+_TITLE_LEHRKRAFT_MANIPULATE = "Lehrkräfte"
 _TITLE_BUCHUNGEN = "Buchungen"
+_TITLE_BUCHUNGEN_DELETE = "Buchung löschen"
 
-_TEMPLATE_LEHRKRAFT = "tss/lehrkraft.html"
-_TEMPLATE_ANMELDUNG = "tss/lehrkraft_anmeldung.html"
-_TEMPLATE_BUCHUNGEN = "tss/lehrkraft_buchungen.html"
+_TEMPLATE_LEHRKRAFT = "lehrkraft/lehrkraft_dashboard.html"
+_TEMPLATE_LEHRKRAFT_MANIPULATE = "lehrkraft/lehrkraft_bearbeiten.html"
 
-_ALLOWED_ROLES_TSS: frozenset[str] = frozenset({"admin", "tss"})
+_TEMPLATE_BUCHUNGEN_SHOW = "lehrkraft/buchungen_anzeigen.html"
+_TEMPLATE_BUCHUNGEN_DELETE = "lehrkraft/buchung_loeschen.html"
 
 
 # ------------------------------------------------------------------------------
 # Routen
-# ------------------------------------------------------------------------------
+# ==============================================================================
 
 
+# ----- Lehrkraft --------------------------------------------------------------
 @lehrkraft_bp.route("/", methods=["GET", "POST"])
-@requires_auth(_ALLOWED_ROLES_TSS)
+@requires_auth(_ALLOWED_ROLES_TSS, allow_token_bypass=True)
 def route_lehrkraft() -> ResponseReturnValue:
-    """Zeigt alle administrativen Aufgaben auf einer Webseite."""
-    berater_token: str | None = request.values.get("token")
+    """Zeigt alle administrativen Aufgaben auf einer Webseite.
+    Note:
+        Fehlerbehandlung erfolgt in den Services (create_buchung, send_mail_to_bucher).
+        Die Route prüft nur die Kategorie und rendert entsprechend.
+    """
+    lehrkraft_token: str | None = request.values.get("token")
+    lehrkraft = get_lehrkraft_by_token_or_abort(lehrkraft_token)
 
-    if berater_token:
-        berater = get_berater_by_token_or_abort(berater_token)
-        return render_template(
-            _TEMPLATE_LEHRKRAFT,
-            title=_TITLE_LEHRKRAFT,
-            berater=berater,
-        )
-
-    return redirect(url_for("tss.route_lehrkraftanmeldung"))
-
-
-@lehrkraft_bp.route("/lehrkraft_anmeldung.html", methods=["GET", "POST"])
-@requires_auth(_ALLOWED_ROLES_TSS)
-def route_lehrkraftanmeldung() -> ResponseReturnValue:
-    """Zeigt die Anmeldeseite für Lehrkräfte und deren Einstellungen."""
-    berater_token: str | None = request.values.get("token")
-    berater: Berater | None = get_berater_by_token_or_abort(berater_token) if berater_token else None
-    form = BeraterForm(obj=berater)
-
-    if form.validate_on_submit():
-        return _handle_anmeldung_submit(form, berater)
-
-    if request.method == "POST":
-        flash_form_errors("route_lehrkraftanmeldung", form)
+    if lehrkraft is None:
+        return redirect(url_for("lehrkraft.route_lehrkraft_neu"))
 
     return render_template(
-        _TEMPLATE_ANMELDUNG,
-        title=_TITLE_ANMELDUNG,
-        form=form,
+        _TEMPLATE_LEHRKRAFT,
+        title=_TITLE_LEHRKRAFT,
+        lehrkraft=lehrkraft,
+        is_create=False,
     )
 
 
-@lehrkraft_bp.route("/buchungen.html", methods=["GET", "POST"])
-@requires_auth(_ALLOWED_ROLES_TSS)
-def route_buchungenanzeige() -> ResponseReturnValue:
-    """Zeigt alle Buchungen einer Lehrkraft an."""
-    berater_token: str | None = request.values.get("token")
-    berater = get_berater_by_token_or_abort(berater_token)
-    form = BuchungShowForm()
+@lehrkraft_bp.route("/lehrkraft_bearbeiten.html", methods=["GET", "POST"])
+@requires_auth(_ALLOWED_ROLES_TSS, allow_token_bypass=True)
+def route_lehrkraft_bearbeiten() -> ResponseReturnValue:
+    """Zeigt die Anmeldeseite für Lehrkräfte und deren Einstellungen.
+    Note:
+        Fehlerbehandlung erfolgt in den Services (create_buchung, send_mail_to_bucher).
+        Die Route prüft nur die Kategorie und rendert entsprechend.
+    """
+    lehrkraft_token: str | None = request.values.get("token")
+    lehrkraft: Lehrkraft | None = get_lehrkraft_by_token_or_abort(lehrkraft_token) if lehrkraft_token else None
+    form = LehrkraftForm(obj=lehrkraft)
 
     if form.validate_on_submit():
-        match form.buchung_action.data:
-            case "download":
-                return _handle_buchung_download(berater)
-            case "delete":
-                return _handle_buchung_delete(form, berater_token)
+        ## Lehrkraft aktualisieren
+        message, category = update_lehrkraft(form, lehrkraft)
+        flash(message, category)
+        # Weiterleiten zum Dashboard
+        return redirect(url_for("lehrkraft.route_lehrkraft", token=lehrkraft.lehrkraft_token))
+
+    elif form.is_submitted():
+        flash_form_errors("", form)
 
     return render_template(
-        _TEMPLATE_BUCHUNGEN,
+        _TEMPLATE_LEHRKRAFT_MANIPULATE,
+        title=_TITLE_LEHRKRAFT_MANIPULATE,
+        form=form,
+        lehrkraft=lehrkraft,
+    )
+
+
+@lehrkraft_bp.route("/lehrkraft_neu", methods=["GET", "POST"])
+@requires_auth(_ALLOWED_ROLES_TSS)
+def route_lehrkraft_neu() -> ResponseReturnValue:
+    """Erstellt eine Lehrkraft und schickt eine Mail an sie
+    Note:
+        Fehlerbehandlung erfolgt in den Services (create_buchung, send_mail_to_bucher).
+        Die Route prüft nur die Kategorie und rendert entsprechend.
+    """
+    form = LehrkraftForm()
+
+    if form.validate_on_submit():
+        # Lehrkraft erstellen
+
+        message, category, lehrkraft = create_lehrkraft(form)
+        flash(message, category)
+        if category != "success":
+            return redirect(url_for("lehrkraft.route_lehrkraft"))
+
+        # Mail an Lehrkraft senden
+        message, category = send_anmeldung_mail_to_lehrkraft(lehrkraft)
+        flash(message, category)
+
+        # Weiterleiten zum Dashboard
+        return redirect(url_for("lehrkraft.route_lehrkraft", token=lehrkraft.lehrkraft_token))
+
+    elif form.is_submitted():
+        flash_form_errors(form)
+
+    return render_template(
+        _TEMPLATE_LEHRKRAFT_MANIPULATE,
+        title=_TITLE_LEHRKRAFT,
+        form=form,
+        is_create=True,
+    )
+
+
+# ----- Buchung-- --------------------------------------------------------------
+@lehrkraft_bp.route("/buchungen.html", methods=["GET", "POST"])
+@requires_auth(_ALLOWED_ROLES_TSS, allow_token_bypass=True)
+def route_buchungen_anzeigen() -> ResponseReturnValue:
+    """Zeigt alle Buchungen einer Lehrkraft an.
+    Note:
+        Fehlerbehandlung erfolgt in den Services (create_buchung, send_mail_to_bucher).
+        Die Route prüft nur die Kategorie und rendert entsprechend.
+    """
+    lehrkraft_token: str | None = request.values.get("token")
+    lehrkraft = get_lehrkraft_by_token_or_abort(lehrkraft_token, to_abort=True)
+
+    form = BuchungShowForm()
+    if form.validate_on_submit():
+        if form.buchung_action.data == "download":
+            message, category, pdf_io = export_to_pdf(lehrkraft)
+            flash(message, category)
+            if category != "danger":
+                return send_file(
+                    pdf_io,
+                    mimetype="application/pdf",
+                    as_attachment=True,
+                    download_name=f"{lehrkraft.lehrkraft_nachname}_{lehrkraft.lehrkraft_vorname}.pdf",
+                    conditional=False,
+                )
+
+    elif form.is_submitted():
+        flash_form_errors("route_buchung_neu", form)
+
+    return render_template(
+        _TEMPLATE_BUCHUNGEN_SHOW,
         title=_TITLE_BUCHUNGEN,
         form=form,
-        berater=berater,
+        lehrkraft=lehrkraft,
     )
 
 
-# ------------------------------------------------------------------------------
-# Hilfsfunktionen – Anmeldung
-# ------------------------------------------------------------------------------
-
-
-def _handle_anmeldung_submit(form: BeraterForm, berater: Berater | None) -> ResponseReturnValue:
-    """Verarbeitet das abgeschickte Anmeldeformular (Erstanlage oder Update)."""
-    try:
-        if berater:
-            _update_berater(form, berater)
-            flash(
-                f"Berater: {berater.berater_vorname} {berater.berater_nachname} wurde erfolgreich aktualisiert",
-                "success",
-            )
-
-        else:
-            berater = _create_berater(form)
-            flash(
-                f"Berater: {berater.berater_vorname} {berater.berater_nachname} wurde erfolgreich eingefügt",
-                "success",
-            )
-            mail_info, mail_result = send_anmeldung_mail_to_berater(berater)
-            flash(mail_info, mail_result)
-
-        return redirect(url_for("tss.route_lehrkraftanmeldung", token=berater.token))
-
-    except Exception as e:
-        state.db.session.rollback()
-        logger.error("Datenbankfehler beim Speichern des Beraters: %s", e)
-        flash("Fehler beim Speichern. Bitte versuche es erneut.", "error")
-        return render_template(
-            _TEMPLATE_ANMELDUNG,
-            title=_TITLE_ANMELDUNG,
-            form=form,
-        )
-
-
-# ------------------------------------------------------------------------------
-# Hilfsfunktionen – Buchungen
-# ------------------------------------------------------------------------------
-
-
-def _handle_buchung_download(berater: Berater) -> ResponseReturnValue:
-    """Exportiert alle Buchungen eines Beraters als PDF."""
-    file_io = _export_to_pdf(berater)
-    return send_file(
-        file_io,
-        mimetype="application/pdf",
-        as_attachment=True,
-        download_name=f"{berater.berater_nachname}_{berater.berater_vorname}.pdf",
-        conditional=False,
-    )
-
-
-def _handle_buchung_delete(form: BuchungShowForm, berater_token: str | None) -> ResponseReturnValue:
-    """Löscht eine einzelne Buchung anhand des Buchungs-Tokens aus dem Formular
-
-    Args:
-        form (BuchungShowForm): Flask Form mit Buchungsdaten
-        berater_token (str): Token des Beraters
-
-    Returns:
-        ResponseReturnValue: Antwort der App
+@lehrkraft_bp.route("/buchung/loeschen/<string:buchung_token>", methods=["GET", "POST"])
+@requires_auth(_ALLOWED_ROLES_TSS, allow_token_bypass=True)
+def route_buchung_loeschen(buchung_token: str) -> ResponseReturnValue:
+    """Zeigt die Löschbestätigung und löscht ein Thema nach POST.
+    Note:
+        Fehlerbehandlung erfolgt in den Services (create_buchung, send_mail_to_bucher).
+        Die Route prüft nur die Kategorie und rendert entsprechend.
     """
-    # Antwort Seite mit Token des Beraters, um seine wieder Daten anzeigen zu können
-    redirect_url = url_for("tss.route_buchungenanzeige", token=berater_token)
+    buchung = get_buchung_by_token_or_abort(buchung_token, to_abort=True)
 
-    if not form.buchung_token.data:
-        flash("Keine Buchungs-ID angegeben.", "error")
-        return redirect(redirect_url)
+    form = BuchungDeleteForm()
+    # Token in die Form eintragen
+    if not form.is_submitted():
+        form.buchung_token.data = buchung_token
 
-    buchung = _get_buchung_by_token(form.buchung_token.data)
-    if not buchung:
-        flash("Buchung existiert nicht.", "error")
-        return redirect(redirect_url)
+    if form.validate_on_submit():
+        lehrkraft_token = buchung.lehrkraft.lehrkraft_token
+        messsage, category = delete_buchung(form.buchung_token.data)
+        flash(messsage, category)
+        return redirect(url_for("lehrkraft.route_buchungen_anzeigen", token=lehrkraft_token))
 
-    info = f"{buchung.betrieb_name} um {buchung.uhrzeit_id}h"
-    try:
-        delete_buchung(buchung)  # ← Service übernimmt DB
-        flash(f"Buchung: {info} wurde erfolgreich gelöscht.", "success")
-    except Exception as e:
-        logger.error("Fehler beim Löschen der Buchung (%s): %s", info, e)
-        flash("Fehler beim Löschen. Bitte versuchen Sie es erneut.", "error")
+    elif form.is_submitted():
+        flash_form_errors("route_buchung_loeschen", form)
 
-    return redirect(redirect_url)
+    return render_template(
+        _TEMPLATE_BUCHUNGEN_DELETE,
+        title=_TITLE_BUCHUNGEN_DELETE,
+        form=form,
+        buchung=buchung,
+    )

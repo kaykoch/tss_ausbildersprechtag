@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8" />
-    <title>{{ berater.berater_nachname }}</title>
+    <title>{{ lehrkraft.lehrkraft_nachname }}</title>
 </head>
 <body>
     {% if sprechtag %}
@@ -12,8 +12,8 @@
     {% endif %}
 
 
-    <h2>{{ berater.berater_vorname }} {{ berater.berater_nachname }}</h2>
-    <h3>Raum: {{ berater.berater_raum }}</h3>
+    <h2>{{ lehrkraft.lehrkraft_vorname }} {{ lehrkraft.lehrkraft_nachname }}</h2>
+    <h3>Raum: {{ lehrkraft.lehrkraft_raum }}</h3>
     <div class="schueler-block">
         <table>
             <thead>
@@ -25,7 +25,7 @@
                 </tr>
             </thead>
             <tbody>
-                {% for buchung in berater.buchungen %}
+                {% for buchung in lehrkraft.buchungen %}
                 <tr>
                     <td>{{ buchung.betrieb_name }}</td>
                     <td>{{ buchung.betrieb_mail }}</td>

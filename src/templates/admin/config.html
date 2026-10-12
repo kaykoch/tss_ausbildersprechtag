@@ -1,7 +1,14 @@
 {% extends "base.html" %} 
 {% block content %}
 
-<h3>Konfiguration</h3>
+<h2 class="title">
+    <a href="{{ url_for('admin.route_admin') }}" 
+      class="previous round "data-tooltip="Zurück zur Buchungsübersicht">
+      &#8249;
+    </a>
+    Konfiguration
+</h2>
+
 <form method="POST">
     {{ form.csrf_token }}
     <h2>Logins und Passwörter</h2>
@@ -23,7 +30,11 @@
             {{ form.tss_password(id="password-field_2", class="form-control") }}
             <span onclick="togglePasswordVisibility('password-field_2', this)" style="cursor: pointer;"> 👁️ </span>
         </div>
-    </div>    
+        <div class="field">
+            {{ form.log_level.label }} 
+            {{ form.log_level(class="form-control") }}
+        </div>
+    </div>
     <h2>Sprechtag</h2>
     <div class="grid">
         <div class="field">
@@ -37,6 +48,11 @@
         <div class="field">
             {{ form.sprechtag_ende.label }}
             {{ form.sprechtag_ende(class="form-control") }}
+        </div>
+
+        <div class="field">
+            {{ form.sprechtag_storno.label }}
+            {{ form.sprechtag_storno(class="form-control") }}
         </div>
     </div>
 

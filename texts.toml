@@ -17,7 +17,10 @@ name           = "Theobald-Simon-Schule"
 url            = "https://sprechtag.tss-bitburg.de"
 lehrkraftlogin = "tssbit"
 
-[sprechtag]
-sprechtag_wartezeit = 17
-sprechtag_titel = "Ausbilder- und Elternsprechtag: "
+[app]
+titel = "Ausbilder / Elternsprechtag: "
+testmodus     = 1
 
+[login]
+# Erlaubte Login-Typen für die Anwendung
+allowed_types = ["admin", "tss"]

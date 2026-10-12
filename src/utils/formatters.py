@@ -10,7 +10,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
+""" Alte Version ohne de_DE.UTF-8
 _WOCHENTAGE = {
     0: "Montag",
     1: "Dienstag",
@@ -36,7 +36,16 @@ _MONATE = {
 }
 
 
-def formatiere_datum_deutsch(dt: datetime | date) -> str:
+def formatiere_datum_deutsch_UTC(dt: datetime | date) -> str:
+
+    if isinstance(dt, (datetime, date)):
+        return f"{_WOCHENTAGE[dt.weekday()]}, {dt.day}. {_MONATE[dt.month]} {dt.year}"
+    logger.warning("formatiere_datum_deutsch: Unerwarteter Typ %s für dt=%r", type(dt).__name__, dt)
+    return "unbekannt"
+"""
+
+
+def get_formatted_date(dt: datetime | date) -> str:
     """Formatiert ein date- oder datetime-Objekt locale-unabhängig auf Deutsch.
 
     Args:
@@ -47,6 +56,6 @@ def formatiere_datum_deutsch(dt: datetime | date) -> str:
         Bei ungültigem Typ: "unbekannt".
     """
     if isinstance(dt, (datetime, date)):
-        return f"{_WOCHENTAGE[dt.weekday()]}, {dt.day}. {_MONATE[dt.month]} {dt.year}"
+        return dt.strftime("%A, %d.%m.%Y")
     logger.warning("formatiere_datum_deutsch: Unerwarteter Typ %s für dt=%r", type(dt).__name__, dt)
     return "unbekannt"

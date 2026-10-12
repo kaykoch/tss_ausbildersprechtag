@@ -1,0 +1,55 @@
+<!-- Überprüft durch Claude  Hailku -->
+ 
+{% extends "base.html" %}
+{% block content %}
+
+<h2 class="title">Anmeldung: <br>
+    <span>als Lehrkraft</span>
+</h2>
+<div class="container">
+    <form id="globalLehrkraftForm" method="POST">
+        {{ form.csrf_token }}
+        {{ form.action }}
+        {{ form.lehrkraft_token(id="lehrkraft_token") }}
+        <!-- ##########################################-->
+        <div class="grid">
+            <div class="field">
+                {{ form.lehrkraft_vorname.label }}
+                {{ form.lehrkraft_vorname(class="form-control") }}
+            </div>
+            <div class="field">
+                {{ form.lehrkraft_nachname.label }}
+                {{ form.lehrkraft_nachname(class="form-control") }}
+            </div>
+        </div>
+        <!-- ##########################################-->
+        <div class="grid">
+            <div class="field">
+                {{ form.lehrkraft_mail.label }}
+                {{ form.lehrkraft_mail(class="form-control") }}
+            </div>
+
+            <div class="field">
+                {{ form.lehrkraft_dauer.label }}
+                {{ form.lehrkraft_dauer(class="form-control") }}
+            </div>
+        </div>
+        <!-- ##########################################-->
+        <div class="grid">
+            <div class="field">
+                {{ form.lehrkraft_will_mail.label }}
+                {{ form.lehrkraft_will_mail(class="form-control") }}
+            </div>
+
+            <div class="field">
+                {{ form.lehrkraft_raum.label }}
+                {{ form.lehrkraft_raum(class="form-control") }}
+            </div>
+
+        </div>
+        <div class="field">
+            {{ form.submit_lehrkraft(class="btn btn-primary big") }}
+        </div>
+    </form>
+</div>
+{% endblock %}

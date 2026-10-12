@@ -1,0 +1,71 @@
+<!-- Überprüft durch Claude  Hailku -->
+
+{% extends "base.html" %}
+{% block content %}
+
+<h2 class="title">
+    <a href="{{ url_for('lehrkraft.route_lehrkraft', token=lehrkraft.lehrkraft_token) }}" 
+      class="previous round "data-tooltip="Zurück zur Buchungsübersicht">
+      &#8249;
+    </a>
+  Buchungen: <br>
+  <span>{{lehrkraft.full_name}} ({{lehrkraft.lehrkraft_raum}})</span>
+</h2>
+   
+
+{% if lehrkraft.buchungen %}
+  <form id="globalBuchungForm" method="POST">
+  {{ form.csrf_token }}
+  {{ form.buchung_token(id="buchung_token") }}
+  {{ form.buchung_action(id="buchung_action") }}
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 40%;">Betrieb</th>
+        <th style="width: 40%;">Mailadresse</th>
+        <th style="width: 15%;">Uhrzeit</th>
+        <th>Buchung</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for buchung in lehrkraft.buchungen %}
+      <tr>
+        <td>{{ buchung.betrieb_name }}</td>
+        <td>{{ buchung.betrieb_mail }}</td>
+        <td>{{ buchung.uhrzeit_id }} Uhr</td>
+        <td>
+          <a href="{{ url_for('lehrkraft.route_buchung_loeschen', buchung_token=buchung.buchung_token) }}"
+            class="btn btn-danger small">
+            Löschen
+          </a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <button type="button"  onclick="submitAction('', 'download')"
+    class="btn btn-primary midi">
+    PDF - Download
+  </button>
+
+</form>
+{% else %}
+<div class="data-box ">Keine Buchungen vorhanden</div>
+{% endif %}
+
+<script>
+  function submitAction(token, action, confirmationMessage = null) {
+    // Falls eine Bestätigung gefordert ist (z.B. beim Löschen)
+    if (confirmationMessage && !confirm(confirmationMessage)) {
+      return; // Abbrechen, wenn der Nutzer "Abbrechen" klickt
+    }
+
+    document.getElementById('buchung_token').value = token;
+    document.getElementById('buchung_action').value = action;
+
+    // Das Formular absenden
+    document.getElementById('globalBuchungForm').submit();
+  }
+</script>
+{% endblock %}

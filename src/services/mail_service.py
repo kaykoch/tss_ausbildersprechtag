@@ -1,6 +1,6 @@
 # ------------------------------------------------------------------------------
 # Überprüft durch  Claude Haiku
-# ------------------------------------------------------------------------------
+# ==============================================================================
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from flask_mail import Message
 from markupsafe import Markup
 
 from src.extensions import state
-from src.models import Berater, Buchung
+from src.models import Buchung, Lehrkraft
 
 
 logger = logging.getLogger(__name__)
@@ -24,6 +24,127 @@ _SUBJECT_STORNO = "Storno: Ausbildersprechtag"
 _SUBJECT_ANMELDUNG = "Registrierung: Ausbildersprechtag"
 
 
+# ------------------------------------------------------------------------------
+# Mail – öffentlich
+# ==============================================================================
+
+
+def send_mail_to_bucher(buchung: Buchung) -> tuple[Markup, Literal["success", "warning", "danger"]]:
+    """Sendet eine Bestätigungsmail an den Bucher nach der Terminbuchung.
+
+    Args:
+        buchung: Die neu erstellte Buchung.
+
+    Returns:
+        Tuple (Markup-Nachricht, Kategorie).
+        - "success": Mail erfolgreich versendet
+        - "warning": Mail versendet, aber Bestätigung erforderlich
+        - "danger": Mailversand fehlgeschlagen
+    """
+
+    msg = _build_mail_msg(
+        _SUBJECT_BUCHER,
+        buchung.betrieb_mail,
+        "mail/mail_bucher.html",
+        buchung=buchung,
+        time_to_wait=state.sprechtag.storno,
+    )
+    sent = _send_mail(msg)
+    masked_mail = _mask(buchung.betrieb_mail)
+    if sent:
+        logger.info("Mail (Anmeldung) verschickt an: %s", buchung.full_name)
+        message = (
+            f"Die Mail wurde an {masked_mail} gesendet<br>Bitte bestätigen Sie Ihre Daten innerhalb von "
+            f"{state.sprechtag.storno} Minuten"
+        )
+        category = "warning"
+    else:
+        logger.error("Mailversand (Anmeldung) fehlgeschlagen an: %s", buchung.full_name)
+        message = f"Die Mail an {masked_mail} konnte nicht versandt werden."
+        category = "danger"
+
+    return (Markup(message), category)
+
+
+def send_mail_to_lehrkraft(
+    buchung: dict | Buchung, lehrkraft: Lehrkraft, is_deleted: bool = False
+) -> tuple[Markup, Literal["success", "danger"]]:
+    """Benachrichtigt eine Lehrkraft per Mail über eine neue oder stornierte Buchung.
+
+    Wird nur gesendet, wenn ``lehrkraft.lehrkraft_will_mail`` True ist.
+
+    Args:
+        buchung: Die betroffene Buchung (dict oder Buchung-Objekt).
+        lehrkraft: Lehrkraft der Buchung.
+        is_deleted: True, wenn es sich um eine Stornierung handelt. Defaults to False.
+
+    Returns:
+        Tuple (Markup-Nachricht, Kategorie).
+        - "success": Mail erfolgreich versendet
+        - "danger": Mailversand fehlgeschlagen
+    """
+
+    if not lehrkraft.lehrkraft_will_mail:
+        return
+
+    subject = _SUBJECT_STORNO if is_deleted else _SUBJECT_BERATER
+    msg = _build_mail_msg(
+        subject,
+        lehrkraft.lehrkraft_mail,
+        "mail/mail_lehrkraft.html",
+        buchung=buchung,
+        is_deleted=is_deleted,
+    )
+    sent = _send_mail(msg)
+
+    if sent:
+        message = f"Mail (Buchung) verschickt an: {lehrkraft.full_name})"
+        logger.info(message)
+        category = "success"
+    else:
+        message = f"Mailversand (Buchung) fehlgeschlagen an: {lehrkraft.full_names}"
+        category = "danger"
+        logger.error(message)
+
+    return (Markup(message), category)
+
+
+def send_anmeldung_mail_to_lehrkraft(lehrkraft: Lehrkraft) -> tuple[Markup, Literal["success", "danger"]]:
+    """Sendet eine Registrierungsbestätigung an eine neu angemeldete Lehrkraft.
+
+    Args:
+        lehrkraft: Die neu registrierte Lehrkraft.
+
+    Returns:
+        Tuple (Markup-Nachricht, Kategorie).
+        - "success": Mail erfolgreich versendet
+        - "danger": Mailversand fehlgeschlagen
+    """
+
+    msg = _build_mail_msg(
+        _SUBJECT_ANMELDUNG,
+        lehrkraft.lehrkraft_mail,
+        "mail/mail_anmeldunglehrkraft.html",
+        lehrkraft=lehrkraft,
+    )
+    sent = _send_mail(msg)
+
+    if sent:
+        message = f"Mail (Anmeldung) verschickt an:{lehrkraft.full_name}"
+        logger.info(message)
+        category = "success"
+    else:
+        message = f"Mailversand  (Anmeldung) fehlgeschlagen an: {lehrkraft.full_name}"
+        logger.error(message)
+        category = "danger"
+    return (Markup(message), category)
+
+
+# ------------------------------------------------------------------------------
+# Mail – Hilfsfunktionen
+# ==============================================================================
+
+
 def _send_mail(msg: Message) -> bool:
     """Sendet eine Flask-Mail-Message.
 
@@ -31,10 +152,14 @@ def _send_mail(msg: Message) -> bool:
         True bei erfolgreichem Versand, sonst False.
     """
     try:
-        # state.mail.send(msg)
-        print(msg.html)
-        logger.debug("Mail gesendet an: %s", msg.recipients)
-        return True
+        if state.infos.app.testmodus:
+            # Im Testmodus wird nicht gesendet, sondern ausgegeben
+            print(msg.html)
+            return True
+        else:
+            # Mail wird versendet
+            state.mail.send(msg)
+            logger.debug("Mail gesendet an: %s", msg.recipients)
 
     except SMTPAuthenticationError:
         logger.error("Mail-Fehler: Authentifizierung am SMTP-Server fehlgeschlagen.")
@@ -70,106 +195,18 @@ def _build_mail_msg(subject: str, recipient: str, template: str, **ctx) -> Messa
 
 
 def _mask(addr: str) -> str:
+    """Maskiert eine E-Mail-Adresse für Logging-Zwecke.
+
+    Args:
+        addr: E-Mail-Adresse.
+
+    Returns:
+        Maskierte E-Mail-Adresse (z.B. "ma***@example.com").
+    """
     try:
         local, domain = addr.split("@", 1)
-        return f"{local[:2]}***@{domain}"
+        # Mindestens 2 Zeichen zeigen, Rest maskieren
+        visible = max(2, len(local) // 3)
+        return f"{local[:visible]}***@{domain}"
     except Exception:
-        return "***"
-
-
-# ------------------------------------------------------------------------------
-# Mail – öffentlich
-# ------------------------------------------------------------------------------
-
-
-def send_mail_to_bucher(buchung: Buchung) -> tuple[Markup, Literal["success", "warning", "error"]]:
-    """Sendet eine Bestätigungsmail an den Bucher nach der Terminbuchung.
-
-    Args:
-        buchung: Die neu erstellte Buchung.
-
-    Returns:
-        Tuple (Markup-Nachricht, Kategorie).
-    """
-    msg = _build_mail_msg(
-        _SUBJECT_BUCHER,
-        buchung.betrieb_mail,
-        "mail/mail_bucher.html",
-        buchung=buchung,
-        time_to_wait=state.infos.sprechtag.sprechtag_wartezeit,
-    )
-    sent = _send_mail(msg)
-    masked_mail = _mask(buchung.betrieb_mail)
-    if sent:
-        logger.info("Mail verschickt an: %s (%s)", buchung.betrieb_name, masked_mail)
-        info = (
-            f"Die Mail wurde an {masked_mail} gesendet<br>Bitte bestätigen Sie Ihre Daten innerhalb von "
-            f"{state.infos.sprechtag.sprechtag_wartezeit} Minuten"
-        )
-        result = "warning"
-    else:
-        logger.error("Mailversand fehlgeschlagen an: %s (%s)", buchung.betrieb_name, masked_mail)
-        info = f"Die Mail an {buchung.betrieb_mail} konnte nicht versandt werden."
-        result = "error"
-
-    return (Markup(info), result)
-
-
-def send_mail_to_berater(buchung: dict | Buchung, berater: Berater, delete: bool = False) -> None:
-    """Benachrichtigt eine Lehrkraft per Mail über eine neue oder stornierte Buchung.
-
-    Wird nur gesendet, wenn ``berater.berater_will_mail`` True ist,
-
-    Args:
-        buchung: Die betroffene Buchung.
-        berater: Berater der Buchung
-        delete:  True, wenn es sich um eine Stornierung handelt
-
-    Args:
-        buchung (dict | Buchung): Die betroffene Buchung, (Kopie der Buchung als dict,
-                wenn sie storniert, also gelöscht wurde)
-        delete (bool, optional): True, wenn es sich um eine Stornierung handelt. Defaults to False.
-    """
-    if not berater.berater_will_mail:
-        return
-
-    subject = _SUBJECT_STORNO if delete else _SUBJECT_BERATER
-    msg = _build_mail_msg(
-        subject,
-        berater.berater_mail,
-        "mail/mail_berater.html",
-        buchung=buchung,
-        berater=berater,
-        delete=delete,
-    )
-    sent = _send_mail(msg)
-
-    if sent:
-        logger.info("Mail verschickt an: %s (%s)", berater.berater_nachname, berater.berater_mail)
-    else:
-        logger.error("Mailversand fehlgeschlagen an: %s", berater.berater_mail)
-
-
-def send_anmeldung_mail_to_berater(berater: Berater) -> tuple[Markup, Literal["success", "warning", "error"]]:
-    """Sendet eine Registrierungsbestätigung an eine neu angemeldete Lehrkraft.
-
-    Args:
-        berater: Die neu registrierte Lehrkraft.
-
-    Returns:
-        Tuple (Markup-Nachricht, Kategorie).
-    """
-    msg = _build_mail_msg(
-        _SUBJECT_ANMELDUNG,
-        berater.berater_mail,
-        "mail/mail_anmeldungberater.html",
-        berater=berater,
-    )
-    sent = _send_mail(msg)
-    masked_mail = _mask(berater.berater_mail)
-    if sent:
-        logger.info("Mail verschickt an: %s", berater.berater_mail)
-        return (Markup(f"Die Mail wurde an {masked_mail} gesendet"), "success")
-
-    logger.error("Mailversand fehlgeschlagen an: %s", berater.berater_mail)
-    return (Markup(f"Die Mail an {masked_mail} konnte nicht versandt werden."), "error")
+        return "***@***"

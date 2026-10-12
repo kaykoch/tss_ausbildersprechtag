@@ -132,6 +132,18 @@ class ConfigForm(FlaskForm):
         validators=[Optional(), Email(), _EMAIL_LENGTH],
         render_kw={"placeholder": "z.B.: schulserver@example.de"},
     )
+    log_level = SelectField(
+        "Logging-Level",
+        choices=[
+            ("DEBUG", "DEBUG (Alle Meldungen)"),
+            ("INFO", "INFO (Informationen)"),
+            ("WARNING", "WARNING (Warnungen, Standard)"),
+            ("ERROR", "ERROR (Nur Fehler)"),
+            ("CRITICAL", "CRITICAL (Nur kritische Fehler)"),
+        ],
+        default="WARNING",
+        validators=[AnyOf(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])],
+    )
 
     # Sprechtag
     sprechtag_termin = DateField(
@@ -158,43 +170,51 @@ class ConfigForm(FlaskForm):
             "title": "Um welche Uhrzeit findet der letzte Termin statt?",
         },
     )
+    sprechtag_storno = IntegerField(
+        "Buchung wird gelöscht nach:",
+        validators=[Optional(), NumberRange(min=15, max=120)],
+        render_kw={
+            "placeholder": "z.B.: 30",
+            "title": "Nach wievielen Minuten soll eine nicht bestätigte Buchung gelöscht werden?",
+        },
+    )
 
     submit = SubmitField("Einstellungen speichern")
 
 
-class BeraterForm(FlaskForm):
-    """Formular zum Erstellen und Bearbeiten eines Beraters."""
+class LehrkraftForm(FlaskForm):
+    """Formular zum Erstellen und Bearbeiten eines Lehrkrafts."""
 
-    berater_id = HiddenField("ID", validators=_ID_VALIDATORS)
+    lehrkraft_id = HiddenField("ID", validators=_ID_VALIDATORS)
 
-    berater_vorname = StringField(
+    lehrkraft_vorname = StringField(
         "Vorname",
         filters=[normalize_whitespace],
         validators=[DataRequired(), _NAME_LENGTH],
         render_kw={"placeholder": "z.B.: John"},
     )
-    berater_nachname = StringField(
+    lehrkraft_nachname = StringField(
         "Nachname",
         filters=[normalize_whitespace],
         validators=[DataRequired(), _NAME_LENGTH],
         render_kw={"placeholder": "z.B.: Lennon"},
     )
-    berater_raum = StringField(
+    lehrkraft_raum = StringField(
         "Raum",
         filters=[normalize_whitespace],
-        validators=[DataRequired(), Length(max=20)],
+        validators=[Optional(), Length(max=20)],
         render_kw={
             "placeholder": "z.B.: R109",
             "title": "Der Raum, in dem Sie den/die Ausbilder:in erwarten.",
         },
     )
-    berater_mail = EmailField(
+    lehrkraft_mail = EmailField(
         "E-Mail",
         filters=[normalize_whitespace],
         validators=email_validators(),
         render_kw={"placeholder": "z.B.: john@beatles.de"},
     )
-    berater_will_mail = BooleanField(
+    lehrkraft_will_mail = BooleanField(
         "Benachrichtigung per Mail",
         default=False,
         render_kw={
@@ -204,7 +224,7 @@ class BeraterForm(FlaskForm):
             )
         },
     )
-    berater_dauer = IntegerField(
+    lehrkraft_dauer = IntegerField(
         "Dauer eines Termins",
         validators=[Optional(), NumberRange(min=10, max=45)],
         render_kw={
@@ -212,19 +232,26 @@ class BeraterForm(FlaskForm):
             "title": "Die Dauer in Minuten, für die ein Termin gebucht werden kann.",
         },
     )
-    berater_token = HiddenField(
-        "berater_token",
+    lehrkraft_token = HiddenField(
+        "lehrkraft_token",
         validators=[Optional()],
-        render_kw={"id": "berater_token"},
+        render_kw={"id": "lehrkraft_token"},
     )
-    submit_berater = SubmitField("Lehrkraft erstellen / aktualisieren")
+    submit_lehrkraft = SubmitField("Lehrkraft erstellen / aktualisieren")
 
     def __repr__(self) -> str:
-        return "<BeraterForm>"
+        return "<LehrkraftForm>"
 
 
-class BeraterShowForm(FlaskForm):
-    """Formular für Aktionen auf der Beraterliste (z. B. Löschen, Bearbeiten)."""
+class LehrkraftDeleteForm(FlaskForm):
+    """Formular zur CSRF-geschützten Bestätigung einer Buchung-Löschung."""
+
+    lehrkraft_token = HiddenField("lehrkraft_token", validators=[DataRequired()])
+    submit_lehrkraft_delete = SubmitField("Löschen")
+
+
+class LehrkraftShowForm(FlaskForm):
+    """Formular für Aktionen auf der Lehrkraftliste (z. B. Löschen, Bearbeiten)."""
 
     action = HiddenField("Action", validators=[DataRequired()], render_kw={"id": "form_action"})
     token = HiddenField("token", validators=[DataRequired()], render_kw={"id": "form_token"})
@@ -235,11 +262,11 @@ class BuchungForm(FlaskForm):
 
     buchung_id = HiddenField("buchung_id", validators=_ID_VALIDATORS)
 
-    berater_id = SelectField(
+    lehrkraft_id = SelectField(
         "Mit wem möchten Sie sprechen?",
         choices=[("", "Bitte wählen...")],
         validators=[DataRequired()],
-        render_kw={"title": "Bitte wählen Sie den Berater aus."},
+        render_kw={"title": "Bitte wählen Sie den Lehrkraft aus."},
     )
     uhrzeit_id = SelectField(
         "Wann möchten Sie mit der Lehrkraft sprechen?",
@@ -266,3 +293,10 @@ class BuchungShowForm(FlaskForm):
 
     buchung_token = HiddenField("buchung_token", validators=[Optional()], render_kw={"id": "buchung_token"})
     buchung_action = HiddenField("buchung_action", validators=[DataRequired()], render_kw={"id": "buchung_action"})
+
+
+class BuchungDeleteForm(FlaskForm):
+    """Formular zur CSRF-geschützten Bestätigung einer Buchung-Löschung."""
+
+    buchung_token = HiddenField("buchung_token", validators=[DataRequired()])
+    submit_buchung_delete = SubmitField("Löschen")

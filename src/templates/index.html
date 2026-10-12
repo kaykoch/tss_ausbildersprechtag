@@ -3,24 +3,24 @@
 {% extends "base.html" %}
 {% block content %}
 <div id="api-config"
-     data-freie-zeiten-url="{{ url_for('main.freie_zeiten', berater_id=0) }}">
+     data-freie-zeiten-url="{{ url_for('main.freie_zeiten', lehrkraft_id=0) }}">
 </div>
-<h3>Anmeldung: <br>
+<h2 class="title">Anmeldung: <br>
     <span>als Ausbildungsbetrieb oder Erziehungsberechtigte</span>
-</h3>
+</h2>
 
-<div class="container">
+
     <form method="POST">
         {{ form.csrf_token }}
         <div class="grid">
             <!-- ##########################################-->
             <div class="field">
-                {{ form.berater_id.label }}
-                {{ form.berater_id(class="form-control") }}
+                {{ form.lehrkraft_id.label }}
+                {{ form.lehrkraft_id(class="form-control") }}
             </div>
             <div class="field ">
                 {{ form.uhrzeit_id.label }}
-                {{ form.uhrzeit_id(class="form-control") }}
+                {{ form.uhrzeit_id(class="form-control", disabled=True) }}
             </div>
         </div>
         <div class="grid">
@@ -40,21 +40,21 @@
             {{ form.submit(class="btn btn-primary big") }}
         </div>
     </form>
-</div>
+
 
 <script>
-    const beraterSelect = document.getElementById('berater_id');
+    const lehrkraftSelect = document.getElementById('lehrkraft_id');
     const uhrzeitSelect = document.getElementById('uhrzeit_id');
     const baseUrl = document.getElementById('api-config').dataset.freieZeitenUrl.replace('/0', '');
 
-    beraterSelect.addEventListener('change', function () {
-        const beraterId = this.value;
+    lehrkraftSelect.addEventListener('change', function () {
+        const lehrkraftId = this.value;
 
-        if (beraterId) {
+        if (lehrkraftId) {
             // Bei unserem Flask-Server nachfragen
             
 
-                 fetch(`${baseUrl}/${beraterId}`)
+                 fetch(`${baseUrl}/${lehrkraftId}`)
                 .then(response => {
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
                     return response.json();

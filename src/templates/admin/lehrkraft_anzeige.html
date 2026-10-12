@@ -1,0 +1,109 @@
+<!-- Überprüft durch Claude  Hailku -->
+ 
+{% extends "base.html" %}
+{% block content %}
+
+<h2 class="title">Registrierte Lehrkräfte</h2>
+<form id="globalActionForm"  method="POST">
+  {{ form.csrf_token }}
+  {{ form.action(id="form_action") }}
+  {{ form.token(id="form_token") }}
+
+  <table class="ausbilder">
+    <thead>
+      <tr>
+        <th style="width: 100%;" >
+          <div class="tooltip"
+            data-data-tooltip="Die Lehrkräfte mit ihrem Raum und Mail-Adresse. 📩, wenn eine Benachrichtigung gewünscht ist">
+            <div >Lehrkraft</div>
+          </div>
+        </th>
+        <th>
+          <div class="tooltip" data-data-tooltip="Einstellungen der Lehrkraft bearbeiten">
+            <div >Lehrkraft</div>
+          </div>
+        </th>
+        <th>
+          <div class="tooltip" data-data-tooltip="Alle bisherigen Anmeldungen anzeigen">
+            <div >Buchungen</div>
+          </div>
+        </th>
+        <th>
+          <div class="tooltip" data-data-tooltip="Anmeldemail erneut an Lehrkraft senden">
+            <div>Mail</div>
+          </div>
+        </th>
+
+        <th>
+          <div class="tooltip-danger" data-data-tooltip="Lehrkraft und alle Anmeldungen löschen">
+            <div>Lehrkraft</div>
+          </div>
+        </th>
+
+      </tr>
+    </thead>
+    <tbody>
+
+      {% for lehrkraft in lehrkraft_liste %}
+      <tr>
+        <td>
+          <b>{{lehrkraft.lehrkraft_nachname}}, {{lehrkraft.lehrkraft_vorname}}</b> ({{lehrkraft.lehrkraft_raum}} )<br>
+          {{lehrkraft.lehrkraft_mail}}  {% if lehrkraft.lehrkraft_will_mail %} (📩) {% endif %}
+        </td>
+
+        <td>
+          <button type="button" class="btn btn-primary small"
+            onclick="submitAction('{{ lehrkraft.token }}', 'update')">
+            bearbeiten
+          </button>
+        </td>
+       <td>
+          <button type="button" class="btn btn-primary  small"
+            onclick="submitAction('{{ lehrkraft.token }}', 'show')">
+            anzeigen
+          </button>
+        </td>        
+       <td>
+          <button type="button" class="btn btn-primary  small"
+            onclick="submitAction('{{ lehrkraft.token }}', 'send', 'Möchten Sie die E-Mail wirklich erneut senden?')">
+            senden
+          </button>
+        </td>
+        <td>
+          <button type="button" class="btn btn-danger  small"
+            onclick="submitAction('{{ lehrkraft.token }}', 'delete', 'Möchten Sie diesen Lehrkraft wirklich löschen?')">
+            löschen
+          </button>
+        </td>
+        
+      </tr>
+      {% else %}
+      <tr>
+          <td colspan="5">Keine Lehrkräfte registriert.</td>
+      </tr>
+      {% endfor %}
+
+    </tbody>
+  </table>
+</form>
+
+<script>
+  function submitAction(token, action, confirmationMessage = null) {
+    // Falls eine Bestätigung gefordert ist (z.B. beim Löschen)
+    if (confirmationMessage && !confirm(confirmationMessage)) {
+      return; // Abbrechen, wenn der Nutzer "Abbrechen" klickt
+    }
+
+    // Die versteckten Inputs des globalen Formulars heraussuchen
+    document.getElementById('form_token').value = token;
+    document.getElementById('form_action').value = action;
+   
+  
+    // Das Formular absenden
+    document.getElementById('globalActionForm').submit();
+  }
+</script>
+
+
+
+{% endblock %}

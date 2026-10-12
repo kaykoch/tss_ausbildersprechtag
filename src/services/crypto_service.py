@@ -1,6 +1,6 @@
 # ------------------------------------------------------------------------------
 # Überprüft durch  Claude Haiku
-# ------------------------------------------------------------------------------
+# ==============================================================================
 
 from __future__ import annotations
 
@@ -15,14 +15,15 @@ logger = logging.getLogger(__name__)
 
 
 def _get_fernet() -> Fernet | None:
-    """ "Liest den Fernet-Key aus app.config['ENCRYPTION_KEY'] und gibt ein Fernet-Objekt zurück.
-
-    Raises:
-        RuntimeError: ungültigem Key
+    """Liest den Fernet-Key aus app.config['ENCRYPTION_KEY'] und gibt ein Fernet-Objekt zurück.
 
     Returns:
-        Fernet | None: Fernet-Objekt. None, wenn kein App-Kontext/Key vorhanden
+        Fernet | None: Fernet-Objekt oder None, wenn kein App-Kontext/Key vorhanden.
+
+    Raises:
+        RuntimeError: Bei ungültigem Key.
     """
+
     app = getattr(state, "app", None)
     if app is None:
         logger.warning("App-Kontext nicht gesetzt: kann Mail-Passwort nicht ver-/entschlüsseln.")
@@ -50,8 +51,10 @@ def get_decrypted_mail_password(mail_password: str) -> str:
         mail_password: Verschlüsseltes Passwort aus der Datenbank.
 
     Returns:
-        Entschlüsseltes Passwort als String, oder "" bei fehlendem Key/Passwort.
+        Entschlüsseltes Passwort als String.
+        Bei Fehler oder fehlendem Key: leerer String ("").
     """
+
     if not mail_password:
         return ""
 
@@ -74,14 +77,18 @@ def get_decrypted_mail_password(mail_password: str) -> str:
 
 
 def get_encrypted_mail_password(plain_password: str) -> str | None:
-    """Verschlüsselt das Mail-Password für die Speicherung in der DB
+    """Verschlüsselt das Mail-Passwort für die Speicherung in der DB.
 
     Args:
-        plain_password (str): uUnverschlüsseltes Passwort (leerer String wird abgelehnt).
+        plain_password: Unverschlüsseltes Passwort (leerer String wird abgelehnt).
 
     Returns:
-        str | None: Verschlüsseltes Passwort, oder None bei fehlendem Key/Passwort.
+        str | None: Verschlüsseltes Passwort oder None bei fehlendem Key/Passwort.
+
+    Raises:
+        RuntimeError: Bei Verschlüsselungsfehlern.
     """
+
     if not plain_password:
         return None
 

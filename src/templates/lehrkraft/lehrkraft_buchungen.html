@@ -4,10 +4,10 @@
 {% block content %}
 
 {{ form.action }}
-<h3>Buchungen: <br>
-    <span>{{berater.berater_vorname}} {{berater.berater_nachname}} ({{berater.berater_raum}})</span>
-</h3>
-<div class="container">
+<h2 class="title">Buchungen: <br>
+    <span>{{lehrkraft.lehrkraft_vorname}} {{lehrkraft.lehrkraft_nachname}} ({{lehrkraft.lehrkraft_raum}})</span>
+</h2>
+    {% if lehrkraft.buchungen %}
     <form id="globalBuchungForm" method="POST">
         {{ form.csrf_token }}
         {{ form.buchung_token(id="buchung_token") }}
@@ -20,11 +20,10 @@
                     <th>Mailadresse</th>
                     <th>Uhrzeit</th>
                     <th>Buchung</th>
-
                 </tr>
             </thead>
             <tbody>
-                {% for buchung in berater.buchungen %}
+                {% for buchung in lehrkraft.buchungen %}
                 <tr>
                     <td>{{ buchung.betrieb_name }}</td>
                     <td>{{ buchung.betrieb_mail }}</td>
@@ -44,7 +43,9 @@
         </button>
 
     </form>
-</div>
+{% else %}
+    <div class="data-box ">Keine Buchungen vorhanden</div>
+{% endif %}
 <script>
     function submitAction(token, action, confirmationMessage = null) {
         // Falls eine Bestätigung gefordert ist (z.B. beim Löschen)

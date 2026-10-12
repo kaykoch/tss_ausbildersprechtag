@@ -3,7 +3,14 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h3>Registrierte Lehrkräfte</h3>
+<h2 class="title">
+  <a href="{{ url_for('admin.route_admin') }}" 
+    class="previous round "data-tooltip="Zurück zur Buchungsübersicht">
+    &#8249;
+  </a>
+  Registrierte Lehrkräfte
+</h2>
+
 <form id="globalActionForm"  method="POST">
   {{ form.csrf_token }}
   {{ form.action(id="form_action") }}
@@ -12,66 +19,65 @@
   <table class="ausbilder">
     <thead>
       <tr>
-        <th style="width: 100%;" >
-          <div class="tooltip"
-            data-tooltip="Die Lehrkräfte mit ihrem Raum und Mail-Adresse. 📩, wenn eine Benachrichtigung gewünscht ist">
-            <div >Lehrkraft</div>
-          </div>
+        <th>
+          <span class="tooltip" data-tooltip="Die Lehrkräfte mit ihrem Raum und Mail-Adresse. 📩, wenn eine Benachrichtigung gewünscht ist">
+            Lehrkraft
+          </span>
         </th>
         <th>
-          <div class="tooltip" data-tooltip="Einstellungen der Lehrkraft bearbeiten">
-            <div >Lehrkraft</div>
-          </div>
+          <span class="tooltip" data-tooltip="Einstellungen der Lehrkraft bearbeiten">
+            Lehrkraft
+          </span>
         </th>
         <th>
-          <div class="tooltip" data-tooltip="Alle bisherigen Anmeldungen anzeigen">
-            <div >Buchungen</div>
-          </div>
+          <span class="tooltip" data-tooltip="Alle bisherigen Anmeldungen anzeigen">
+            Buchungen
+          </span>
         </th>
-        <th>
-          <div class="tooltip" data-tooltip="Anmeldemail erneut an Lehrkraft senden">
-            <div>Mail</div>
-          </div>
+        <th> 
+          <span class="tooltip" data-tooltip="Anmeldemail erneut an Lehrkraft senden">
+            Mail
+          </span>
         </th>
 
         <th>
-          <div class="tooltip-danger" data-tooltip="Lehrkraft und alle Anmeldungen löschen">
-            <div>Lehrkraft</div>
-          </div>
+          <span class="tooltip-danger" data-tooltip="Lehrkraft und alle Anmeldungen löschen">
+            Lehrkraft
+          </span>
         </th>
 
       </tr>
     </thead>
     <tbody>
 
-      {% for berater in berater_liste %}
+      {% for lehrkraft in lehrkraft_liste %}
       <tr>
         <td>
-          <b>{{berater.berater_nachname}}, {{berater.berater_vorname}}</b> ({{berater.berater_raum}} )<br>
-          {{berater.berater_mail}}  {% if berater.berater_will_mail %} (📩) {% endif %}
+          <b>{{lehrkraft.lehrkraft_nachname}}, {{lehrkraft.lehrkraft_vorname}}</b> ({{lehrkraft.lehrkraft_raum}} )<br>
+          {{lehrkraft.lehrkraft_mail}}  {% if lehrkraft.lehrkraft_will_mail %} (📩) {% endif %}
         </td>
 
         <td>
           <button type="button" class="btn btn-primary small"
-            onclick="submitAction('{{ berater.token }}', 'update')">
+            onclick="submitAction('{{ lehrkraft.lehrkraft_token }}', 'update')">
             bearbeiten
           </button>
         </td>
        <td>
           <button type="button" class="btn btn-primary  small"
-            onclick="submitAction('{{ berater.token }}', 'show')">
+            onclick="submitAction('{{ lehrkraft.lehrkraft_token }}', 'show')">
             anzeigen
           </button>
         </td>        
        <td>
           <button type="button" class="btn btn-primary  small"
-            onclick="submitAction('{{ berater.token }}', 'send', 'Möchten Sie die E-Mail wirklich erneut senden?')">
+            onclick="submitAction('{{ lehrkraft.lehrkraft_token }}', 'send', 'Möchten Sie die E-Mail wirklich erneut senden?')">
             senden
           </button>
         </td>
         <td>
-          <button type="button" class="btn btn-danger  small"
-            onclick="submitAction('{{ berater.token }}', 'delete', 'Möchten Sie diesen Berater wirklich löschen?')">
+          <button type="button" class="btn btn-danger small"
+            onclick="submitAction('{{ lehrkraft.lehrkraft_token }}', 'delete')">
             löschen
           </button>
         </td>

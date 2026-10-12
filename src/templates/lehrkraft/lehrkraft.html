@@ -1,0 +1,31 @@
+
+ 
+{% extends "base.html" %} 
+{% block content %}
+
+<h2 class="title">Dashboard: <br>
+    <span>{{lehrkraft.lehrkraft_vorname}} {{lehrkraft.lehrkraft_nachname}} ({{lehrkraft.lehrkraft_raum}})</span>
+</h2>
+<div class="container-wrapper">
+
+    <a href="{{ url_for('lehrkraft.route_lehrkraft_bearbeiten', token=lehrkraft.token ) }}" target="_self" class="tooltip"
+        data-data-tooltip="Name, Raum, etc.">
+        <div class="btn btn-primary midi">Einstellungen</div>
+    </a>
+
+    <a href="{{ url_for('lehrkraft.route_buchungenanzeige', token=lehrkraft.token) }}" target="_self" class="tooltip"
+        data-data-tooltip="Termine anzeigen, Termine Löschen ">
+        <div class="btn btn-primary midi">Buchungen</div>
+    </a>
+</div>
+
+
+<script>
+    document
+        .getElementById("clickable-box")
+        .addEventListener("click", function () {
+            // Formular per JavaScript absenden
+            document.getElementById("myForm").submit();
+        });
+</script>
+{% endblock %}

@@ -5,7 +5,8 @@
 
 
   <div class="header">
-    <h2>Terminbestätigung — Ausbildersprechtag TSS Bitburg</h2>
+    <h2>Terminbestätigung</h2>
+    <h3>Ausbildersprechtag TSS Bitburg</h3>
   </div>
 
   <div class="content">
@@ -15,40 +16,25 @@
       am <strong>{{ sprechtag.tag }}</strong> angemeldet.
     </p>
 
-    <div class="warning">
+    <div class="important-box">
       ⚠️ Bitte bestätigen Sie Ihren Termin innerhalb von <strong>{{time_to_wait}} Minuten</strong>,
       da er anschließend automatisch gelöscht wird.
     </div>
-
-    <div class="info-box">
-      <table>
-        <tr>
-          <td>Betrieb:</td>
-          <td><strong>{{ buchung.betrieb_name }}</strong></td>
-        </tr>
-        <tr>
-          <td>Uhrzeit:</td>
-          <td>{{ buchung.uhrzeit_id }} Uhr</td>
-        </tr>
-        <tr>
-          <td>Raum:</td>
-          <td>{{ buchung.berater.berater_raum }}</td>
-        </tr>
-        <tr>
-          <td>Lehrkraft:</td>
-          <td>{{ buchung.berater.berater_vorname }} {{ buchung.berater.berater_nachname }}</td>
-        </tr>
-      </table>
-    </div>
+      <dl class="data-box">
+          <dt>Betrieb:</dt><dd>{{ buchung.betrieb_name }}</dd>
+          <dt>Uhrzeit:</dt><dd>{{ buchung.uhrzeit_id }} Uhr</dd>
+          <dt>Lehrkraft:</dt><dd>{{ buchung.lehrkraft.full_name }} </dd>
+          <dt>Raum:</dt><dd>{% if buchung.lehrkraft.lehrkraft_raum %}{{ buchung.lehrkraft.lehrkraft_raum }}{% else %}Bitte im Aushang an der TSS nachlesen{% endif %}</dd>
+      </dl>
 
     <p>Klicken Sie auf den folgenden Button, um Ihren Termin zu bestätigen:</p>
 
-    <a class="btn btn-primary" href="{{ url_for('main.bestaetigung', action='confirm', token=buchung.token, _external=True) }}">    
+    <a href="{{ url_for('main.bestaetigung', action='confirm', token=buchung.buchung_token, _scheme='https', _external=True) }}" class="btn btn-primary" >   
        ✅ Termin bestätigen
     </a>
     <p>Sollten Sie den Termin nicht wahrnehmen können, bitten wir Sie, ihn zu löschen:</p>
 
-    <a class="btn btn-danger" href="{{ url_for('main.bestaetigung', action='delete', token=buchung.token, _external=True) }}">       
+    <a  href="{{ url_for('main.bestaetigung', action='delete', token=buchung.buchung_token, _scheme='https', _external=True) }}" class="btn btn-alert">       
        ❌ Termin löschen
     </a>
     <br>

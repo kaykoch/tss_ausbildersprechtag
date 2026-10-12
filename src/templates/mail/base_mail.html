@@ -6,107 +6,90 @@
 <head>
   <meta charset="UTF-8">
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      font-size: 14px;
-      color: #333;
-      max-width: 600px;
-      margin: 0 auto;
-      padding: 20px;
-    }
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
 
-    .header {
-      background-color: #007bff;
-      color: white;
-      padding: 16px 20px;
-      border-radius: 4px 4px 0 0;
-    }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
 
-    .header h2 {
-      margin: 0;
-      font-size: 18px;
-    }
+        .important-box {
+            background-color: #fff3cd;
+            border-left: 5px solid #ffc107;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        h2, h3 {
+            margin:0px;
+        }
+        /* Button-Styles analog zur ersten Mail */
+        .btn-group {
+            margin: 20px 0;
+        }
 
-    .content {
-      border: 1px solid #ddd;
-      border-top: none;
-      padding: 20px;
-      border-radius: 0 0 4px 4px;
-    }
+        .btn {
+            display: inline-block;
+            padding: 10px 15px;
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            margin:5px;
+        }
+        /* Wichtige Aktion: Bestätigen */
+        .btn-alert {
+            background-color: #dc3545;
+        }
 
-    .info-box {
-      background-color: #f5f5f5;
-      border-left: 4px solid #003366;
-      padding: 12px 16px;
-      margin: 16px 0;
-      border-radius: 0 4px 4px 0;
-    }
+        /* Folge-Aktion: Weitere Azubis */
+        .btn-primary {
+            background-color: #0056b3;
+        }
 
-    .info-box table {
-      border-collapse: collapse;
-      width: 100%;
-    }
+        .data-box {
+            background-color: #f7f7f7;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border: 1px solid #dee2e6;
+            border-left: 5px solid #6c757d;
+            display: grid;
+            grid-template-columns: 120px 1fr;
+        }
 
-    .info-box td {
-      padding: 4px 8px;
-      vertical-align: top;
-    }
+        .data-box p {
+            margin: 5px 0;
+        }
 
-    .info-box td:first-child {
-      font-weight: bold;
-      white-space: nowrap;
-      width: 80px;
-      color: #555;
-    }
+        .data-box dt {
+            font-weight: 600;
+            margin: 0;
+        }
 
-    .warning {
-      background-color: #fff8e1;
-      border: 1px solid #f0c040;
-      padding: 10px 14px;
-      border-radius: 4px;
-      margin: 16px 0;
-      font-size: 13px;
-      color: #7a5c00;
-    }
-
-    .btn {
-      display: inline-block;
-      padding: 10px 24px;
-      color: white;
-      text-decoration: none;
-      cursor: pointer;
-      border-radius: 8px;
-      font-weight: bold;
-      font-size: 14px;
-      margin-top: 8px;
-    }
-
-
-    .btn-primary {
-      background-color: #007bff;
-      margin: 5px 0;
-    }
-
-
-    .btn-danger {
-      background-color: #dc3545;
-    }
-
-
-    .footer {
-      margin-top: 24px;
-      font-size: 12px;
-      color: #999;
-      border-top: 1px solid #eee;
-      padding-top: 12px;
-    }
+        .data-box dd {
+            margin: 0;
+        }
+        .footer{
+          margin-top: 20px;
+          font-style: italic;
+          font-size: 0.9rem;
+          border-top: 1px solid #0056b3;
+        }
   </style>
 </head>
 
 <body>
+  <div class="container">
   {% block content %}
 
   {% endblock %}
+  </div>
 </body>
 
 </html>

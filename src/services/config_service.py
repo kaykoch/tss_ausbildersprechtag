@@ -1,11 +1,16 @@
 # ------------------------------------------------------------------------------
 # Überprüft durch  Claude Haiku
-# ------------------------------------------------------------------------------
+# ==============================================================================
 
 from __future__ import annotations
 
 import logging
+from typing import Literal
 
+from flask import (
+    current_app,
+)
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.inspection import inspect
 from werkzeug.security import generate_password_hash
 
@@ -43,72 +48,126 @@ def _config_to_dict(cfg: ConfigSetting) -> dict:
     return data
 
 
-def load_defaults() -> None:
+def load_defaults() -> tuple[str, Literal["success", "warning", "danger"], None]:
     """Lädt dynamische Konfigurationswerte aus der DB in die Flask-App-Konfiguration.
 
     Sensible Felder (Passwörter / Secrets) werden nicht im Bulk übertragen.
-    Die Felder werden zu uppercase Konvertiert.
+    Die Felder werden zu Uppercase konvertiert.
     MAIL_PASSWORD wird separat aus der verschlüsselten DB-Spalte entschlüsselt.
+
+    Returns:
+        Tuple (message, category, None).
+        - "success": Konfiguration erfolgreich geladen
+        - "warning": Keine Konfiguration in der Datenbank vorhanden
+        - "danger": Fehler beim Laden der Konfiguration
     """
-    try:
-        cfg = load_config()
-        if cfg is None:
-            logger.warning("load_defaults: Keine Konfiguration in der Datenbank gefunden.")
-            return
+    # Validierung: Ohne Konfiguration kann nichts geladen werden
+    message, category, cfg = load_config()
+    if category != "success":
+        return (message, category, None)
 
-        data = _config_to_dict(cfg)
+    data = _config_to_dict(cfg)
 
-        # entferne sensitive Felder aus dem Bulk-Update
-        filtered = {k.upper(): v for k, v in data.items() if k not in _EXCLUDED_FOR_APP_CONFIG}
-        # Bulk-Update (nicht-sensitive Felder)
-        state.app.config.update(filtered)
+    # Sensible Felder vor dem Bulk-Update entfernen
+    filtered = {k.upper(): v for k, v in data.items() if k not in _EXCLUDED_FOR_APP_CONFIG}
+    current_app.config.update(filtered)
 
-        # MAIL_PASSWORD separat aus der (verschlüsselten) DB-Spalte lesen und entschlüsseln
-        if getattr(cfg, "mail_password", None):
-            try:
-                decrypted = get_decrypted_mail_password(cfg.mail_password)
-                state.app.config["MAIL_PASSWORD"] = decrypted or None
-            except Exception:
-                logger.exception("Fehler beim Entschlüsseln des Mail-Passworts")
-                state.app.config["MAIL_PASSWORD"] = None
-        else:
-            state.app.config["MAIL_PASSWORD"] = None
+    # MAIL_PASSWORD separat entschlüsseln
+    current_app.config["MAIL_PASSWORD"] = None
+    if cfg.mail_password:
+        try:
+            decrypted = get_decrypted_mail_password(cfg.mail_password)
+            current_app.config["MAIL_PASSWORD"] = decrypted or None
+        except Exception as e:  # Hier den konkreten Exception-Typ eintragen, sobald bekannt
+            logger.exception("Fehler beim Entschlüsseln des Mail-Passworts: %s", e)
 
-        # MAIL_ENCRYPTION_TYPE zuordnen
-        if getattr(cfg, "mail_encryption", None):
-            try:
-                _assign_mail_encryption(cfg.mail_encryption)
-            except Exception:
-                logger.exception("Fehler beim Zuordnen der Verschlüsselung")
-        else:
-            _assign_mail_encryption()
+    # Mail-Verschlüsselung zuordnen
+    if cfg.mail_encryption:
+        _assign_mail_encryption(cfg.mail_encryption)
+    else:
+        _assign_mail_encryption()
 
-        # Sprechtag festlegen
-        state.set_sprechtag()
+    # Sprechtag festlegen
+    state.set_sprechtag(
+        data["sprechtag_termin"], data["sprechtag_beginn"], data["sprechtag_ende"], data["sprechtag_storno"]
+    )
 
-    except Exception:
-        logger.exception("Konnte App-Konfiguration nicht aus DB laden")
+    logger.info("Konfiguration erfolgreich geladen.")
+    return ("Konfiguration erfolgreich geladen.", "success", None)
 
 
-def load_config() -> ConfigSetting | None:
-    """Lädt den ersten Konfigurationsdatensatz aus der Datenbank."""
+def load_config() -> tuple[str, Literal["success", "warning", "danger"], ConfigSetting | None]:
+    """Lädt den ersten Konfigurationsdatensatz aus der Datenbank.
+
+    Returns:
+        Tuple (message, category, ConfigSetting oder None).
+        - "success": Konfiguration erfolgreich geladen
+        - "warning": Keine Konfiguration in der Datenbank vorhanden
+        - "danger": Fehler beim Laden der Konfiguration
+    """
     stmt = state.db.select(ConfigSetting).limit(1)
-    return state.db.session.execute(stmt).scalar_one_or_none()
+
+    try:
+        config = state.db.session.execute(stmt).scalar_one_or_none()
+
+    except SQLAlchemyError as e:
+        state.db.session.rollback()
+        logger.error("DB-Fehler beim Laden der Konfiguration: %s", e)
+        return ("Fehler beim Laden der Konfiguration.", "danger", None)
+
+    except Exception as e:
+        state.db.session.rollback()
+        logger.exception("Unerwarteter Fehler beim Laden der Konfiguration: %s", e)
+        return ("Unerwarteter Fehler beim Laden der Konfiguration.", "danger", None)
+
+    else:
+        if config is None:
+            logger.warning("Keine Konfiguration in der Datenbank gefunden.")
+            return ("Keine Konfiguration vorhanden.", "warning", None)
+
+        logger.info("Konfiguration geladen.")
+        return ("", "success", config)
 
 
-# ---------- Anwenden einer Config aus dem Formular ----------
-def apply_config_form(form: ConfigForm, cfg: ConfigSetting) -> None:
-    """Überträgt Formularwerte in das ConfigSetting-Objekt.
+def apply_config_form(
+    form: ConfigForm, cfg: ConfigSetting
+) -> tuple[str, Literal["success", "danger"], ConfigSetting | None]:
+    """Überträgt Formularwerte in das ConfigSetting-Objekt, ohne zu committen.
 
-    Achtung: Diese Funktion wirft Exceptions bei Kryptofehlern, der Aufrufer muss
-    die Transaktion (commit/rollback) behandeln.
+    Der Commit erfolgt im Aufrufer (Route). Bei Fehlern werden die Änderungen
+    an der Session per Rollback verworfen.
 
     Args:
-        form (ConfigForm): Flask-Form mit Daten die gespeichert werden sollen
-        cfg (ConfigSetting): DB-Model, in dem gespeichert wird
+        form: Flask-Form mit Daten, die übernommen werden sollen.
+        cfg: DB-Model, in dem die Werte gesetzt werden.
+
+    Returns:
+        Tuple (message, category, ConfigSetting oder None).
+        - "success": Werte erfolgreich in das Objekt übernommen
+        - "danger": Fehler beim Übernehmen der Werte
+
+    Raises:
+        Keine. Fehler werden geloggt und als Tuple zurückgegeben.
     """
-    _apply_non_password_fields(form, cfg)
-    _apply_password_fields(form, cfg)
+
+    try:
+        _apply_non_password_fields(form, cfg)
+        _apply_password_fields(form, cfg)
+
+    except RuntimeError as e:
+        # Teilweise gesetzte Felder verwerfen, bevor die Route etwas committet
+        state.db.session.rollback()
+        logger.error("Verschlüsselungsfehler bei der Konfiguration: %s", e)
+        return ("Konfiguration konnte nicht gespeichert werden.", "danger", None)
+
+    except Exception as e:
+        state.db.session.rollback()
+        logger.exception("Unerwarteter Fehler beim Übernehmen der Konfiguration: %s", e)
+        return ("Unerwarteter Fehler beim Speichern der Konfiguration.", "danger", None)
+
+    else:
+        logger.info("Konfigurationswerte übernommen, Commit folgt in der Route.")
+        return ("Konfiguration erfolgreich übernommen.", "success", cfg)
 
 
 def _apply_non_password_fields(form: ConfigForm, cfg: ConfigSetting) -> None:
@@ -133,36 +192,40 @@ def _apply_non_password_fields(form: ConfigForm, cfg: ConfigSetting) -> None:
 def _apply_password_fields(form: ConfigForm, cfg: ConfigSetting) -> None:
     """Verarbeitet Passwörter: Admin/TSS werden gehasht (one-way), Mail wird verschlüsselt (two-way).
 
-    Bei Fehlern in der Verschlüsselung wird eine Exception geworfen, damit der Aufrufer
-    ein Rollback durchführen kann und kein Klartext in der DB landet.
+    Nur Felder mit Werten werden aktualisiert. Leere Felder werden ignoriert.
 
     Args:
-        form (ConfigForm): Flask-Form mit Daten die gespeichert werden sollen
-        cfg (ConfigSetting): DB-Model, in dem gespeichert wird
+        form: Flask-Form mit Daten die gespeichert werden sollen.
+        cfg: DB-Model, in dem gespeichert wird.
 
+    Raises:
+        RuntimeError: Bei Verschlüsselungsfehlern.
     """
     # 1) Admin & TSS Passwörter hashen (nur wenn etwas eingegeben wurde)
     for field in _HASH_PASSWORD_FIELDS:
-        if getattr(form, field).data:
-            hashed_password = generate_password_hash(getattr(form, field).data)
+        password = getattr(form, field).data
+        if password and password.strip():  # ← Auch Whitespace prüfen
+            hashed_password = generate_password_hash(password.strip())
             setattr(cfg, field, hashed_password)
 
     # 2) Mail-Passwort verschlüsseln (nur wenn etwas eingegeben wurde)
-    if getattr(form, "mail_password").data:
+    mail_password = getattr(form, "mail_password").data
+    if mail_password and mail_password.strip():  # ← Auch Whitespace prüfen
         try:
-            cfg.mail_password = get_encrypted_mail_password(form.mail_password.data)
+            cfg.mail_password = get_encrypted_mail_password(mail_password)
         except Exception as exc:
             raise RuntimeError(
                 "ENCRYPTION_KEY ist kein gültiger Fernet-Key. Neu generieren mit: Fernet.generate_key().decode()"
             ) from exc
 
 
-def _assign_mail_encryption(enc_choice: str = "none"):
-    """weist den Encryption Typ des Mailtransportes zu
+def _assign_mail_encryption(enc_choice: str = "none") -> None:
+    """Weist den Encryption-Typ des Mailtransportes zu.
 
     Args:
-        enc_choice (str, optional): Typ (none | tls | ssl). Defaults to "none".
+        enc_choice: Typ (none | tls | ssl). Defaults to "none".
     """
+
     enc_choice = (enc_choice or "none").lower()
     if enc_choice not in ("none", "tls", "ssl"):
         logger.warning("_assign_mail_encryption: Unbekannter Wert '%s', verwende 'none'", enc_choice)
@@ -172,5 +235,5 @@ def _assign_mail_encryption(enc_choice: str = "none"):
     mail_use_ssl = enc_choice == "ssl"
 
     # In der Flask-App-Config oder Datenbank setzen
-    state.app.config["MAIL_USE_TLS"] = mail_use_tls
-    state.app.config["MAIL_USE_SSL"] = mail_use_ssl
+    current_app.config["MAIL_USE_TLS"] = mail_use_tls
+    current_app.config["MAIL_USE_SSL"] = mail_use_ssl

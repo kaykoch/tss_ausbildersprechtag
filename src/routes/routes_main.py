@@ -1,34 +1,38 @@
 # ------------------------------------------------------------------------------
 # Überprüft durch Claude  Hailku
-# ------------------------------------------------------------------------------
+# ==============================================================================
 
 import logging
 
 from flask import (
     Blueprint,
+    abort,
     flash,
     jsonify,
+    make_response,
     redirect,
     render_template,
     request,
     url_for,
 )
 from flask.typing import ResponseReturnValue
-from markupsafe import Markup
-from sqlalchemy.orm import joinedload
 
 from src.extensions import state
-from src.forms import BuchungForm
-from src.models import Berater, Buchung
-from src.services.berater_service import _get_berater_liste, get_berater_by_id
+from src.models import Buchung
 from src.services.buchung_service import (
-    _delete_old_orders,
-    _get_freie_zeiten_fuer_berater,
-    _get_gebuchte_zeiten,
+    confirm_buchung,
+    create_buchung,
     delete_buchung,
+    delete_unconfirmed_buchungen,
+    get_buchung_by_token_or_abort,
+    get_freie_zeiten_fuer_lehrkraft,
+    get_gebuchte_zeiten,
+    init_buchung_form,
+    slot_is_used,
 )
-from src.services.mail_service import send_mail_to_berater, send_mail_to_bucher
-from src.utils.helpers import _copy_model_attributes, flash_form_errors
+from src.services.lehrkraft_service import get_lehrkraft_by_id_or_none, get_lehrkraft_liste
+from src.services.mail_service import send_mail_to_bucher, send_mail_to_lehrkraft
+from src.utils.helpers import copy_model_attributes, flash_form_errors
 
 
 logger = logging.getLogger(__name__)
@@ -46,13 +50,6 @@ _TEMPLATE_INDEX = "index.html"
 _TEMPLATE_BESTAETIGUNG = "bestaetigung.html"
 _TEMPLATE_IMPRESSUM = "impressum.html"
 
-_MSG_CONFIRM_INFO = (
-    " <p>⚠️ Der Termin wurde bestätigt</p>"
-    " <p><b>Wichtig: </b> Wenn Sie Ihren Termin nicht wahrnehmen können, nutzen Sie den"
-    " Stornierungslink in Ihrer Bestätigungs-E-Mail"
-    " — so geben Sie den Platz für andere Betriebe frei.</p>"
-)
-
 
 # ------------------------------------------------------------------------------
 # Routen
@@ -60,62 +57,119 @@ _MSG_CONFIRM_INFO = (
 
 
 @main_bp.route("/", methods=["GET", "POST"])
-@state.limiter.limit("5 per minute")
+@state.limiter.limit("10 per minute")
 def index() -> ResponseReturnValue:
-    """Startseite – Buchungsformular anzeigen und verarbeiten."""
-    _delete_old_orders()
-    berater_liste = _get_berater_liste()
-    form = _init_buchung_form(berater_liste)
+    """Startseite – Buchungsformular anzeigen und verarbeiten.
+    Note:
+        Fehlerbehandlung erfolgt in den Services (create_buchung, send_mail_to_bucher).
+        Die Route prüft nur die Kategorie und rendert entsprechend.
+    """
+    # 1.) nicht bestätigte, abgelaufene Buchungen löschen
+    message, category = delete_unconfirmed_buchungen()
+    if category != "success":
+        flash(message, category)
 
-    if request.method == "POST":
-        return _handle_buchung_post(form, berater_liste)
+    # 2.) erstellt das Auswahlfeld der Lehrkräfte
+    lehrkraft_liste = get_lehrkraft_liste()
+    selected_lehrkraft_id = request.form.get("lehrkraft_id", type=int)
+    form = init_buchung_form(lehrkraft_liste, selected_lehrkraft_id)
 
-    form.uhrzeit_id.disabled = True
-    return _render_index(form, berater_liste)
+    if form.validate_on_submit():
+        lehrkraft_id = form.lehrkraft_id.data
+        uhrzeit_id = form.uhrzeit_id.data
+
+        lehrkraft = get_lehrkraft_by_id_or_none(lehrkraft_id)
+        if not lehrkraft:
+            flash("Es gibt keine Lehrkraft mit dieser ID.", "danger")
+            return redirect(url_for("main.index"))
+
+        # 3.) Überprüft, ob der slot wirklich frei ist
+        message, category, slot_used = slot_is_used(lehrkraft_id, uhrzeit_id)
+        if category != "success":
+            flash(message, category)
+            return redirect(url_for("main.index"))
+
+        if slot_used:
+            flash(f"Der Termin um {uhrzeit_id}h bei {lehrkraft.full_name} ist leider schon vergeben.", "danger")
+            return redirect(url_for("main.index"))
+
+        # 4.)Buchung erstellen
+        message, category, buchung = create_buchung(form, lehrkraft)
+        flash(message, category)
+        if category != "success":
+            return redirect(url_for("main.index"))
+
+        form = init_buchung_form(lehrkraft_liste, None)
+
+        # 5.) Mail an Bucher versenden
+        message, category = send_mail_to_bucher(buchung)
+        flash(message, category)
+
+    elif form.is_submitted():
+        flash_form_errors(form)
+
+    return render_template(
+        _TEMPLATE_INDEX,
+        title=_TITLE_INDEX,
+        lehrkraft_liste=lehrkraft_liste,
+        form=form,
+    )
 
 
 @main_bp.route("/bestaetigung", methods=["GET"])
 def bestaetigung() -> ResponseReturnValue:
-    """Buchung wird durch Aufruf bestätigt oder gelöscht."""
-    token = request.args.get("token")
+    """Buchung wird durch Aufruf bestätigt oder gelöscht.
+    Note:
+        Fehlerbehandlung erfolgt in den Services (create_buchung, send_mail_to_bucher).
+        Die Route prüft nur die Kategorie und rendert entsprechend.
+    """
+    buchung_token = request.args.get("token")
     action = request.args.get("action")
 
-    if not token:
-        flash("Kein Token angegeben.", "error")
-        return _render_bestaetigung(buchung=None)
+    if not all([buchung_token, action]):
+        abort(make_response("bad request! (Fehlende Parameter)", 400))
 
-    if not action:
-        flash("Keine Aktion angegeben.", "error")
-        return _render_bestaetigung(buchung=None)
+    # Abbruch, wenn es die Buchung nicht gibt
+    buchung = get_buchung_by_token_or_abort(buchung_token, to_abort=True)
 
-    try:
-        buchung = _load_buchung_by_token(token)
-        if buchung is None:
-            flash("Diese Buchung existiert nicht oder ist abgelaufen.", "error")
-            return _render_bestaetigung(buchung=None)
-        buchung = _handle_bestaetigung_action(action, token, buchung)
+    # Verarbeitet die Aktion für die Buchung (löschen oder bestätigen)
+    buchung = _handle_buchung(action, buchung)
 
-    except Exception as e:
-        state.db.session.rollback()
-        logger.error("Fehler in bestaetigung (action: %s, token: %s): %s", action, token, e)
-        flash("Ein Fehler ist aufgetreten. Bitte versuche es erneut.", "error")
-        buchung = None
-
-    return _render_bestaetigung(buchung=buchung, title=_TITLE_BESTAETIGUNG)
+    return render_template(
+        _TEMPLATE_BESTAETIGUNG,
+        title=_TITLE_BESTAETIGUNG,
+        buchung=buchung,
+        storno=state.sprechtag.storno,
+    )
 
 
-@main_bp.route("/api/freie_zeiten/<int:berater_id>")
+@main_bp.route("/api/freie_zeiten/<int:lehrkraft_id>")
 @state.limiter.limit("30 per minute")
-def freie_zeiten(berater_id: int) -> ResponseReturnValue:
-    """API – Gibt freie Zeiten für einen Berater zurück."""
-    return jsonify(_get_freie_zeiten_fuer_berater(berater_id))
+def freie_zeiten(lehrkraft_id: int) -> ResponseReturnValue:
+    """API – Gibt freie Zeiten für einen Lehrkraft zurück.
+    Note:
+        Fehlerbehandlung erfolgt in den Services (create_buchung, send_mail_to_bucher).
+        Die Route prüft nur die Kategorie und rendert entsprechend.
+    """
+    message, category, freie_zeiten = get_freie_zeiten_fuer_lehrkraft(lehrkraft_id)
+    if category != "success":
+        flash(message, category)
+    return jsonify(freie_zeiten)
 
 
-@main_bp.route("/api/gebuchte_zeiten/<int:berater_id>")
+@main_bp.route("/api/gebuchte_zeiten/<int:lehrkraft_id>")
 @state.limiter.limit("30 per minute")
-def gebuchte_zeiten(berater_id: int) -> ResponseReturnValue:
-    """API – Gibt gebuchte Zeiten für einen Berater zurück."""
-    return jsonify(_get_gebuchte_zeiten(berater_id))
+def gebuchte_zeiten(lehrkraft_id: int) -> ResponseReturnValue:
+    """API – Gibt gebuchte Zeiten für einen Lehrkraft zurück.
+
+    Note:
+        Fehlerbehandlung erfolgt in den Services (create_buchung, send_mail_to_bucher).
+        Die Route prüft nur die Kategorie und rendert entsprechend.
+    """
+    message, category, gebuchte_zeiten = get_gebuchte_zeiten(lehrkraft_id)
+    if category != "success":
+        flash(message, category)
+    return jsonify(gebuchte_zeiten)
 
 
 @main_bp.route("/impressum.html", methods=["GET"])
@@ -125,135 +179,42 @@ def route_impressum() -> ResponseReturnValue:
 
 
 # ------------------------------------------------------------------------------
-# Hilfsfunktionen – Index / Buchung
-# ------------------------------------------------------------------------------
+# Hilfsfunktionen
+# ==============================================================================
 
 
-def _init_buchung_form(berater_liste: list[Berater]) -> BuchungForm:
-    """Initialisiert das Buchungsformular mit Berater-Choices."""
-    form = BuchungForm()
-    form.berater_id.choices = [("", "Bitte wählen...")] + [
-        (b.berater_id, f"{b.berater_nachname}, {b.berater_vorname}") for b in berater_liste
-    ]
-    form.uhrzeit_id.choices = [("", "Bitte wählen Sie zuerst eine Lehrkraft aus")]
-    return form
+def _handle_buchung(action: str, buchung: Buchung) -> Buchung:
+    """Verarbeitet die Aktion für die Buchung (löschen oder bestätigen).
 
+    Args:
+        action: "confirm" oder "delete"
+        buchung: Buchung-Objekt
 
-def _handle_buchung_post(form: BuchungForm, berater_liste: list[Berater]) -> ResponseReturnValue:
-    """Verarbeitet den POST-Request des Buchungsformulars."""
-    selected_berater_id = request.form.get("berater_id")
-
-    if selected_berater_id:
-        valid_zeiten = _get_freie_zeiten_fuer_berater(selected_berater_id)
-        form.uhrzeit_id.choices = [("", "Bitte Uhrzeit wählen...")] + [(zeit, f"{zeit} Uhr") for zeit in valid_zeiten]
-
-    if form.validate_on_submit():
-        return _process_buchung(form)
-
-    flash_form_errors("index", form)
-    return _render_index(form, berater_liste)
-
-
-def _process_buchung(form: BuchungForm) -> ResponseReturnValue:
-    """Speichert eine neue Buchung und sendet Bestätigungsmails."""
-    berater_id = form.berater_id.data
-    uhrzeit_id = form.uhrzeit_id.data
-
-    berater = state.db.session.get(Berater, berater_id)
-    if not berater:
-        flash("Es gibt keine Lehrkraft mit dieser ID.", "error")
-        return redirect(url_for("main.index"))
-
-    stmt = state.db.select(Buchung).filter(
-        Buchung.berater_id == berater_id,
-        Buchung.uhrzeit_id == uhrzeit_id,
-    )
-    if state.db.session.execute(stmt).scalars().first():
-        flash(
-            f"Der Termin um {uhrzeit_id}h bei"
-            f" {berater.berater_vorname} {berater.berater_nachname} ist leider schon vergeben.",
-            "error",
-        )
-        return redirect(url_for("main.index"))
-
-    buchung = Buchung()
-    form.populate_obj(buchung)
-    try:
-        state.db.session.add(buchung)
-        state.db.session.commit()
-
-    except Exception as e:
-        state.db.session.rollback()
-        logger.error("Fehler beim Speichern der Buchung: %s", e)
-        flash("Fehler beim Speichern der Buchung.", "error")
-        return redirect(url_for("main.index"))
-
-    flash(
-        f"Termin gebucht für: {berater.berater_vorname} {berater.berater_nachname} um {uhrzeit_id}h",
-        "success",
-    )
-    info, result = send_mail_to_bucher(buchung)
-    flash(info, result)
-    return redirect(url_for("main.index"))
-
-
-def _render_index(form: BuchungForm, berater_liste: list[Berater]) -> ResponseReturnValue:
-    """Rendert die Startseite."""
-    return render_template(
-        _TEMPLATE_INDEX,
-        title=_TITLE_INDEX,
-        berater_liste=berater_liste,
-        form=form,
-    )
-
-
-# ------------------------------------------------------------------------------
-# Hilfsfunktionen – Bestätigung
-# ------------------------------------------------------------------------------
-
-
-def _load_buchung_by_token(token: str) -> Buchung | None:
-    """Lädt eine Buchung anhand ihres Tokens."""
-    stmt = state.db.select(Buchung).options(joinedload(Buchung.berater)).where(Buchung.token == token)
-    return state.db.session.execute(stmt).scalars().first()
-
-
-def _handle_bestaetigung_action(action: str, token: str, buchung: Buchung) -> Buchung | None:
-    """Verarbeitet die Bestätigungs- oder Löschaktion für eine Buchung."""
+    Returns:
+        Buchung-Objekt (ggf. modifiziert)
+    """
     match action:
         case "confirm":
-            buchung.bestaetigt = True
-            try:
-                state.db.session.commit()
-            except Exception as e:
-                state.db.session.rollback()
-                logger.error("Fehler beim Bestätigen der Buchung: %s", e)
-                raise
-            send_mail_to_berater(buchung, buchung.berater)
-            flash(Markup(_MSG_CONFIRM_INFO), "warning")
-            return buchung
+            message, category = confirm_buchung(buchung)
+            flash(message, category)
+            if category == "success":
+                send_mail_to_lehrkraft(buchung, buchung.lehrkraft)
 
         case "delete":
-            # Kopie von buchung zur Ausgabe nach dem Löschen
-            buchung_data = _copy_model_attributes(buchung)
-            berater = get_berater_by_id(buchung.berater_id)
+            # Temporäre buchung erstellen speichern und Lehrkraft, um die Daten beim Mailversand zu nutzen
+            buchung_temp = copy_model_attributes(buchung)
+            lehrkraft = buchung.lehrkraft
 
-            delete_buchung(buchung)
+            # Buchung löschen
+            message, category = delete_buchung(buchung)
+            flash(message, category)
 
-            send_mail_to_berater(buchung_data, berater, True)
-            flash("Der Termin wurde gelöscht und wieder frei gegeben.", "warning")
-            return buchung_data
-
+            # Temporäre Buchnung zurückspeichern zum Mailversand und zur Ausgabe
+            buchung = buchung_temp
+            if category == "success":
+                send_mail_to_lehrkraft(buchung, lehrkraft, is_deleted=True)
         case _:
             logger.warning("Ungültige Aktion: %s", action)
-            flash("Ungültige Aktion.", "error")
-            return buchung
+            flash("Ungültige Aktion.", "danger")
 
-
-def _render_bestaetigung(buchung: Buchung | None, title: str = _TITLE_BESTAETIGUNG) -> ResponseReturnValue:
-    """Rendert die Bestätigungsseite."""
-    return render_template(
-        _TEMPLATE_BESTAETIGUNG,
-        title=title,
-        buchung=buchung,
-    )
+    return buchung

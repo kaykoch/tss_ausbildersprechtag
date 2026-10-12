@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2 class="title">
+    <a href="{{ url_for('lehrkraft.route_lehrkraft', token=buchung.lehrkraft.lehrkraft_token) }}" 
+      class="previous round "data-tooltip="Zurück zur Buchungsübersicht">
+      &#8249;
+    </a>
+    Buchung löschen 
+</h2>
+
+<div class="flash danger">
+    Möchten Sie die Buchung von „{{ buchung.betrieb_name }}“ wirklich löschen?<br>
+    Diese Aktion kann nicht rückgängig gemacht werden.
+</div>
+
+<dl class="data-box dt">
+  <dt>Betrieb:</dt><dd> {{ buchung.betrieb_name }}</dd>
+  <dt>Uhrzeit:</dt><dd> {{ buchung.uhrzeit_id }}</dd>
+</dl>
+
+<hr>
+
+<form method="post">
+  {{ form.hidden_tag() }}
+  {{ form.buchung_token }}
+
+  <div class="container-wrapper">
+    <div>
+      {{ form.submit_buchung_delete(class="btn btn-danger midi") }}
+    </div>
+    <div>
+      <button type="button"  onclick="history.back()"
+        class="btn btn-grey midi">
+        Abbrechen
+      </button>
+    </div>
+  </div>
+</form>
+
+{% endblock %}

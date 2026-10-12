@@ -1,0 +1,31 @@
+<!-- Überprüft durch Claude  Hailku -->
+ 
+{% extends "base.html" %}
+{% block content %}
+
+<h2 class="title">Administration</h2>
+
+<div class="container-wrapper">
+    <a href="{{ url_for('lehrkraft.route_lehrkraft') }}" target="_blank" rel="noopener"
+        class="btn btn-primary midi tooltip height" 
+        data-tooltip="Anmeldeseite für Lehrkräfte">
+        Anmeldeseite
+    </a>
+
+    <a href="{{ url_for('admin.route_lehrkraft_anzeigen') }}" target="_blank" rel="noopener" 
+        class="btn btn-primary midi tooltip height"
+        data-tooltip="Termine anzeigen, Anmeldemail erneut versenden, Löschen ">
+        Lehrkräfte
+    </a>
+</div>
+<hr>
+
+<div class="container-wrapper">
+    <a href="{{ url_for('admin.route_config') }}" target="_blank" rel="noopener" 
+        class="btn btn-warning midi tooltip"
+        data-tooltip="Termin für Sprechtag, Passwort, Mailserver etc.">
+        Konfigurationsseite
+    </a>
+</div>
+
+{% endblock %}

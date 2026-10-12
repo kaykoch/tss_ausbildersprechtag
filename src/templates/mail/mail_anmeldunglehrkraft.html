@@ -1,0 +1,33 @@
+<!-- Überprüft durch Claude  Hailku -->
+ 
+{% extends "mail/base_mail.html" %}
+{% block content %}
+
+  <div class="header">
+    <h2>Registrierung — Ausbildersprechtag TSS Bitburg</h2>
+  </div>
+
+  <div class="content">
+    <p>Hallo {{ lehrkraft.lehrkraft_vorname }} {{lehrkraft.lehrkraft_nachname }}</p>
+    <p>
+      Sie haben sich für einen Ausbildersprechtag als <strong>Lehrkraft</strong> angemeldet.
+    </p>
+      <dl class="data-box">
+          <dt>Name:</dt><dd>{{ lehrkraft.full_name }}</dd>
+          <dt>Raum:</dt><dd>{{ lehrkraft.lehrkraft_raum }} Uhr</dd>
+          <dt>Termindauer:</dt><dd>{{ lehrkraft.lehrkraft_dauer }}min </dd>
+          <dt>Mail bei Buchung:</dt><dd>{% if lehrkraft.lehrkraft_will_mail %} Ja {% else %} Nein {% endif %}</dd>
+      </dl>
+
+   <p>Klicken Sie auf den folgenden Button, um Ihren Daten zu ändern und ihre angemeldeten Termine anzusehen</p>
+
+    <a href="{{ url_for('lehrkraft.route_lehrkraft', action='confirm', token=lehrkraft.lehrkraft_token, _scheme='https', _external=True) }}" class="btn btn-primary" >  
+      Daten ändern / Termine einsehen
+    </a>
+
+    <div class="footer">
+      Diese E-Mail wurde automatisch generiert. Bitte antworten Sie nicht auf diese Nachricht.
+    </div>
+  </div>
+
+{% endblock %}

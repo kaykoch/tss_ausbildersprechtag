@@ -7,27 +7,25 @@ from __future__ import annotations
 import locale
 import logging
 from pathlib import Path
-import types
 
-from flask import Flask
+from flask import Flask, current_app
 from sqlalchemy.exc import SQLAlchemyError
 
 from src.config import BaseConfig
 from src.extensions import state
-from src.models import Berater
+from src.models import Lehrkraft
 from src.routes import register_routes
 from src.services.config_service import load_defaults
+from src.utils.logging import setup_logging
 
 
 logger = logging.getLogger(__name__)
-
+_LOG_SEPARATOR = "-" * 50
 # ------------------------------------------------------------------------------
 # Konstanten
 # ------------------------------------------------------------------------------
 
-_SEPARATOR = "-" * 50
-
-# Beispiel-Berater für den ersten App-Start
+# Beispiel-Lehrkraft für den ersten App-Start
 _TEST_BERATER = [
     ("Koch", "Kay", "koch@tssbit.de"),
     ("Rass", "Markus", "koch@tssbit.de"),
@@ -60,11 +58,8 @@ def create_app(config_object: type = BaseConfig) -> Flask:
         Fertig konfigurierte Flask-App.
     """
 
-    _setup_logging()
-    logger.info("%s", _SEPARATOR)
-    logger.info("%s", _SEPARATOR)
-    logger.info("  --> !! App: Ausbildersprechtag wird gestartet !!")
-    logger.info("%s", _SEPARATOR)
+    setup_logging()
+    _print_logger_separator("  --> Ausbildersprechtag wird gestartet !!")
 
     # 1. Flask-App erstellen und Basiskonfiguration laden
     app = Flask(__name__)
@@ -74,10 +69,7 @@ def create_app(config_object: type = BaseConfig) -> Flask:
     state.db.init_app(app)
 
     # Locale für Datumsformatierung setzen (Fallback auf C.UTF-8)
-    try:
-        locale.setlocale(locale.LC_TIME, "C.UTF-8")
-    except locale.Error:
-        logger.warning("Locale C.UTF-8 nicht verfügbar, Fallback auf Standard.")
+    _setup_locale()
 
     # 3. Im App-Context: DB anlegen, Konfiguration aus DB laden, Mail binden.
     with app.app_context():
@@ -89,27 +81,30 @@ def create_app(config_object: type = BaseConfig) -> Flask:
     # 5. Globalen Schulnamen festlegen
     @app.context_processor
     def inject_globals():
-        try:
-            school_name = state.infos.schule.name
-        except AttributeError:
-            school_name = "TESTSCHULE"
+        school_name = "TESTSCHULE"
+        sprechtag_title = "Sprechtag"
 
         try:
-            sprechtag_title = (
-                f"{state.infos.sprechtag.sprechtag_titel}"
-                f"{state.sprechtag.tag} ({state.sprechtag.beginn}h - {state.sprechtag.ende}h)"
-            )
-        except AttributeError:
-            sprechtag_title = "Sprechtag"
+            if hasattr(state, "infos") and hasattr(state.infos, "schule"):
+                school_name = state.infos.schule.name
+        except Exception as e:
+            logger.warning("Fehler beim Laden des Schulnamens: %s", e)
+
+        try:
+            if hasattr(state, "sprechtag") and hasattr(state, "infos"):
+                sprechtag_title = (
+                    f"{state.infos.app.titel} "
+                    f"{state.sprechtag.tag} ({state.sprechtag.beginn}h - {state.sprechtag.ende}h)"
+                )
+        except Exception as e:
+            logger.warning("Fehler beim Laden des Sprechtag-Titels: %s", e)
 
         return {
             "school_name": school_name,
-            "sprechtag_title": sprechtag_title,
+            "app_title": sprechtag_title,
         }
 
-    logger.info("%s", _SEPARATOR)
-    logger.info("  --> !! App: Ausbildersprechtag wurde erfolgreich gestartet !!")
-    logger.info("%s", _SEPARATOR)
+    _print_logger_separator("App: Ausbildersprechtag wurde erfolgreich gestartet !!")
 
     return app
 
@@ -117,19 +112,30 @@ def create_app(config_object: type = BaseConfig) -> Flask:
 def _bootstrap(app: Flask) -> None:
     """Führt alle Initialisierungsschritte innerhalb des App-Contexts aus.
 
+    Reihenfolge ist wichtig:
+        1. state.set_data(app) – Setzt die Flask-App im State
+        2. _init_db() – Erstellt Datenbanktabellen
+        3. load_defaults() – Lädt Konfiguration aus DB
+        4. state.mail.init_app(app) – Bindet Mail
+        5. state.limiter.init_app(app) – Bindet Rate-Limiter
+
     Args:
         app: Die laufende Flask-App.
     """
     try:
-        # globale statevariable initialisieren
-        state.set_data(app)
-        # Datenbank sicherstellen
+        # 1. Globale State-Variable initialisieren
+        state.set_data()
+
+        # 2. Datenbank sicherstellen (inkl. ConfigSettings)
         _init_db()
-        # Konfigwerte aus DB laden (Mail, Admin, Passwort, etc)
+
+        # 3. Konfigwerte aus DB laden (Mail, Admin, Passwort, etc.)
         load_defaults()
-        # Mail Funktion an app binden
+
+        # 4. Mail initialisieren
         state.mail.init_app(app)
-        # Limiter an app binden
+
+        # 5. Limiter an App binden
         state.limiter.init_app(app)
 
     except Exception as e:
@@ -141,12 +147,11 @@ def _init_db() -> None:
     """Initialisiert die SQLite-Datenbank beim App-Start.
 
     Erstellt alle Tabellen, legt einen Standard-ConfigSetting-Eintrag an
-    und befüllt die Berater-Tabelle mit Beispieldaten, falls sie leer ist.
-
+    und befüllt die Lehrkraft-Tabelle mit Beispieldaten, falls sie leer ist.
     """
 
     try:
-        Path(state.app.instance_path).mkdir(parents=True, exist_ok=True)
+        Path(current_app.instance_path).mkdir(parents=True, exist_ok=True)
 
         # Import hier, damit Modelle registriert sind, bevor create_all() aufgerufen wird
         import src.models  # noqa: F401
@@ -168,26 +173,61 @@ def _init_db() -> None:
         raise
 
 
-def _seed_defaults(models: types.ModuleType) -> None:
+# ✅ Besser: Spezifischere Exception
+def _seed_defaults(models) -> None:
     """Legt Standard-Datenbankeinträge an, falls die Tabellen noch leer sind.
 
     Args:
         models: Das src.models-Modul (nach dem Import in _init_db).
+
+    Raises:
+        SQLAlchemyError: Bei Datenbankfehler
     """
-    if not models.ConfigSetting.query.first():
-        state.db.session.add(models.ConfigSetting())
+    try:
+        stmt = state.db.select(models.ConfigSetting)
+        if not state.db.session.execute(stmt).scalars().first():
+            state.db.session.add(models.ConfigSetting())
+            state.db.session.commit()
+            _set_test_lehrkraft()
+            logger.info("Standard-ConfigSetting angelegt.")
 
-    if not Berater.query.first():
-        state.db.session.add_all(
-            Berater(berater_nachname=n, berater_vorname=v, berater_mail=m) for n, v, m in _TEST_BERATER
-        )
+    except SQLAlchemyError as e:
+        logger.exception("DB-Fehler beim Seeding: %s", e)
+        raise
+    except Exception as e:
+        logger.exception("Fehler beim Seeding der Standarddaten: %s", e)
+        raise
 
 
-def _setup_logging() -> None:
-    logging.basicConfig(
-        filename=state.logfile,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-        encoding="utf-8",
-        level=logging.INFO,
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+def _setup_locale() -> None:
+    """Setzt die Locale für Datumsformatierung (Fallback auf C.UTF-8)."""
+    try:
+        locale.setlocale(locale.LC_TIME, "de_DE.UTF-8")
+    except locale.Error:
+        locale.setlocale(locale.LC_TIME, "C.UTF-8")
+        logger.warning("Locale de_DE.UTF-8 nicht verfügbar, Fallback auf C.UTF-8.")
+
+
+def _print_logger_separator(text: str) -> None:
+    """Gibt einen formatierten Log-Separator aus.
+
+    Args:
+        text: Der Text zwischen den Separatoren.
+    """
+    logger.warning(_LOG_SEPARATOR)
+    logger.warning("  --> App: %s", text)
+    logger.warning(_LOG_SEPARATOR)
+
+
+def _set_test_lehrkraft():
+    # NUR IN TESTPHASE: Test-Lehrkraft anlegen
+    try:
+        stmt = state.db.select(Lehrkraft)
+        if not state.db.session.execute(stmt).scalars().first():
+            state.db.session.add_all(
+                Lehrkraft(lehrkraft_nachname=n, lehrkraft_vorname=v, lehrkraft_mail=m) for n, v, m in _TEST_BERATER
+            )
+            state.db.session.commit()
+    except Exception as e:
+        logger.exception("Fehler beim Seeding der Test-Lehrkraft: %s", e)
+        raise

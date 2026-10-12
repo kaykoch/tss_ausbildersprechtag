@@ -9,39 +9,24 @@ import logging
 from pathlib import Path
 import tomllib
 
-from flask import Flask
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_mail import Mail
 from flask_sqlalchemy import SQLAlchemy
 
-from src.utils.formatters import formatiere_datum_deutsch
+from src.utils.formatters import get_formatted_date
 
 
 logger = logging.getLogger(__name__)
-
-_DEFAULT_BERATER = [
-    ("Koch", "Kay", "koch@tssbit.de"),
-    ("Rass", "Markus", "koch@tssbit.de"),
-    ("Tigges", "Ute", "koch@tssbit.de"),
-    ("Dinstuhl", "Ralf", "koch@tssbit.de"),
-    ("Kues", "Max", "koch@tssbit.de"),
-    ("Brungs", "Thomas", "koch@tssbit.de"),
-    ("Röder", "David", "koch@tssbit.de"),
-    ("Recht", "Christian", "koch@tssbit.de"),
-    ("Glatt", "Sebastian", "koch@tssbit.de"),
-    ("Weber", "Marius", "koch@tssbit.de"),
-    ("Marweld", "Torsten", "koch@tssbit.de"),
-]
 
 # ------------------------------------------------------------------------------
 # Flask-Extensions (noch ohne App – werden in create_app gebunden)
 # ------------------------------------------------------------------------------
 
-db = SQLAlchemy()
-mail = Mail()
+db: SQLAlchemy = SQLAlchemy()
+mail: Mail = Mail()
 
-limiter = Limiter(
+limiter: Limiter = Limiter(
     key_func=get_remote_address,
     default_limits=["10 per minute"],
     storage_uri="memory://",
@@ -54,23 +39,57 @@ limiter = Limiter(
 
 @dataclass
 class Sprechtagdata:
-    """Unveränderliche Datenstruktur für die Sprechtag-Eckdaten."""
+    """Unveränderliche Datenstruktur für die Sprechtag-Eckdaten.
+
+    Attributes:
+        tag: Formatiertes Datum des Sprechtags (z.B. "10. September 2025").
+        beginn: Startzeit (z.B. "16:00").
+        ende: Endzeit (z.B. "19:00").
+        storno: Wartezeit, bis Buchung storniert wird (z.B.: 30).
+    """
 
     tag: str
     beginn: str
     ende: str
+    storno: int
 
 
 class TomlState:
-    """verkörpert die Texte aus einer Tomldatei"""
+    """Verkörpert die Texte aus einer TOML-Datei als dynamische Attribute.
 
-    def __init__(self, data: dict):
+    Ermöglicht Zugriff auf TOML-Daten wie: state.infos.schule.name
+    """
+
+    def __init__(self, data: dict | None = None) -> None:
+        """Initialisiert TomlState mit Daten aus einem Dictionary.
+
+        Args:
+            data: Dictionary mit Daten (verschachtelte Dicts werden rekursiv konvertiert).
+        """
+        if data is None:
+            data = {}
+
         for key, value in data.items():
             if isinstance(value, dict):
                 # Verschachtelte Dictionaries ebenfalls umwandeln
                 setattr(self, key, TomlState(value))
             else:
                 setattr(self, key, value)
+
+    def __repr__(self) -> str:
+        return f"<TomlState: {self.__dict__}>"
+
+    def get(self, key: str, default: str | None = None) -> str | None:
+        """Sicherer Zugriff auf Attribute mit Fallback.
+
+        Args:
+            key: Attribut-Name.
+            default: Fallback-Wert wenn Attribut nicht existiert.
+
+        Returns:
+            Attribut-Wert oder Default.
+        """
+        return getattr(self, key, default)
 
 
 # ------------------------------------------------------------------------------
@@ -83,65 +102,96 @@ class AppState:
 
     Wird einmalig als Modul-Singleton `state` instanziiert und in
     `create_app` mit der Flask-App verknüpft.
+
+    Attributes:
+        db: SQLAlchemy-Instanz.
+        mail: Flask-Mail-Instanz.
+        limiter: Flask-Limiter-Instanz.
+        staticfolder: Pfad zum Static-Ordner.
+        sprechtag: Sprechtag-Eckdaten (wird später gesetzt).
+        logfile: Pfad zur Log-Datei.
+        tomlfile: Pfad zur TOML-Datei.
+        infos: Texte aus der TOML-Datei.
     """
 
     # Datei- und Ordnernamen als Klassenkonstanten
-    _ROOT_DIR = Path(__file__).resolve().parent.parent
-    _LOG_DIR = _ROOT_DIR / "logs"
-    _STATIC_DIR = Path(__file__).resolve().parent / "static"
-    _LOG_FILE = "sprechtag.log"
-    _TOML_FILE = "texts.toml"
+    _ROOT_DIR: Path = Path(__file__).resolve().parent.parent
+    _LOG_DIR: Path = _ROOT_DIR / "logs"
+    _STATIC_DIR: Path = Path(__file__).resolve().parent / "static"
+    _LOG_FILE: str = "sprechtag.log"
+    _TOML_FILE: str = "texts.toml"
+
+    # Instanz-Attribute mit Type-Hints
+    db: SQLAlchemy
+    mail: Mail
+    limiter: Limiter
+    staticfolder: Path
+    sprechtag: Sprechtagdata | None
+    logfile: Path
+    tomlfile: Path
+    infos: TomlState
 
     def __init__(self) -> None:
-        self.db: SQLAlchemy = db
-        self.mail: Mail = mail
-        self.app: Flask | None = None
-        self.limiter: Limiter = limiter
+        """Initialisiert den AppState."""
+        self.db = db
+        self.mail = mail
+        self.limiter = limiter
 
-        self.staticfolder: Path = self._STATIC_DIR
-        self.sprechtag: Sprechtagdata | None = None
+        self.staticfolder = self._STATIC_DIR
+        self.sprechtag = None
+        self.allowed_login_types: frozenset[str] = frozenset()
 
-        self.logfile: Path = self._ensure_file_exists(self._LOG_DIR, self._LOG_FILE)
-        self.tomlfile: Path = self._ensure_file_exists(self._ROOT_DIR, self._TOML_FILE)
+        self.logfile = self._ensure_file_exists(self._LOG_DIR, self._LOG_FILE)
+        self.tomlfile = self._ensure_file_exists(self._ROOT_DIR, self._TOML_FILE)
 
-        # Texte aus text.toml
-        self.infos: TomlState = TomlState({})
+        # Texte aus texts.toml
+        self.infos = TomlState({})
 
     # ------------------------------------------------------------------
     # Öffentliche Setter
     # ------------------------------------------------------------------
 
-    def set_data(self, app: Flask) -> None:
-        """Verknüpft die Flask-App mit dem State.
-
-        Args:
-            app: Die laufende Flask-Applikation.
-        """
-        self.app = app
-
-        # Textbausteine laden
+    def set_data(self) -> None:
+        """Liest Daten aus der TOML-Datei."""
         self.infos = self.load_texts(self.tomlfile)
+        # Login-Typen aus texts.toml lesen
+        if hasattr(self.infos, "login"):
+            self.allowed_login_types = frozenset(self.infos.login.allowed_types)
+        else:
+            # Fallback
+            self.allowed_login_types = frozenset({"admin", "tss"})
+            logger.warning("Login-Typen nicht in texts.toml gefunden, verwende Fallback")
 
-    def set_sprechtag(self) -> None:
+        logger.info("AppState initialisiert mit Login-Typen: %s", self.allowed_login_types)
+
+    def set_sprechtag(self, termin: str, beginn: str, ende: str, storno: int) -> None:
         """Setzt die Sprechtag-Eckdaten.
 
         Args:
-            tag:    Datum des Sprechtags.
-            beginn: Startzeit (z. B. "16:00").
-            ende:   Endzeit   (z. B. "19:00").
+            termin: Datum des Sprechtags (z.B. "2025-09-10").
+            beginn: Startzeit (z.B. "16:00").
+            ende: Endzeit (z.B. "19:00").
+            storno: Wartezeit bis löschen der Buchung (z.B. 20).
         """
-
-        self.sprechtag = Sprechtagdata(
-            tag=formatiere_datum_deutsch(self.app.config.get("SPRECHTAG_TERMIN", "?")),
-            beginn=self.app.config.get("SPRECHTAG_BEGINN", "?"),
-            ende=self.app.config.get("SPRECHTAG_ENDE", "?"),
-        )
+        try:
+            self.sprechtag = Sprechtagdata(tag=get_formatted_date(termin), beginn=beginn, ende=ende, storno=storno)
+            logger.info("Sprechtag-Daten gesetzt: %s", self.sprechtag)
+        except Exception as e:
+            logger.exception("Fehler beim Setzen der Sprechtag-Daten: %s", e)
 
     def load_texts(self, tomlfile: Path | str | None) -> TomlState:
-        """Lädt die Texte aus der TOML-Datei in den internen Cache."""
+        """Lädt die Texte aus der TOML-Datei in den internen Cache.
+
+        Args:
+            tomlfile: Pfad zur TOML-Datei.
+
+        Returns:
+            TomlState mit geladenen Daten oder leeres TomlState bei Fehler.
+        """
         if tomlfile is None:
             logger.warning("Keine TOML-Datei angegeben; verwende leere Texte.")
             return TomlState({})
+
         try:
             with open(tomlfile, "rb") as f:
                 data = tomllib.load(f)
@@ -151,8 +201,11 @@ class AppState:
         except FileNotFoundError:
             logger.error("texts.toml nicht gefunden: %s", tomlfile)
             return TomlState({})
-        except tomllib.TOMLDecodeError:
-            logger.exception("Fehler beim Parsen von texts.toml")
+        except tomllib.TOMLDecodeError as e:
+            logger.exception("Fehler beim Parsen von texts.toml: %s", e)
+            return TomlState({})
+        except Exception as e:
+            logger.exception("Unerwarteter Fehler beim Laden von texts.toml: %s", e)
             return TomlState({})
 
     # ------------------------------------------------------------------
@@ -165,7 +218,7 @@ class AppState:
 
         Args:
             directory: Zielverzeichnis. Wird zu "." normalisiert, wenn None.
-            filename:  Dateiname innerhalb des Verzeichnisses.
+            filename: Dateiname innerhalb des Verzeichnisses.
 
         Returns:
             Absoluter Pfad zur Datei, oder Path() bei einem Fehler.
@@ -185,4 +238,4 @@ class AppState:
 # Modul-Singleton
 # ------------------------------------------------------------------------------
 
-state = AppState()
+state: AppState = AppState()

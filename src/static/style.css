@@ -1,18 +1,18 @@
-/* -----------------------------------------------------------------------------
- * Überprüft durch Claude  Hailku
- * -----------------------------------------------------------------------------
-*/
-
 /* -------------------- Custom Properties ----------------------------------- */
 :root {
-  --color-primary:      #007bff;
-  --color-primary-dark: #0069d9;
+  --color-grey:         #dee2e6;
+  --color-grey-dark:    #6c757d;
+  --color-grey-light:   #f7f7f7;
+  --color-primary:      #0040ff;
+  --color-primary-dark: #001eff;
+  --color-primary-light:#dfedfc;
   --color-danger:       #dc3545;
   --color-danger-dark:  #c82333;
+  --color-danger-light :#fa110033;
   --color-warning:      #ffc107;
   --color-warning-dark: #e0a800;
+  --color-warning-light: #ffc00331;
   --color-accent:       #950d00;
-  --color-table-bg:     #c3defc;
 }
 
 /* -------------------- Basis ------------------------------------------------ */
@@ -27,33 +27,39 @@ body {
 }
 
 h1 {
-  font-size: 1.6rem;
+  font-size: 1.3rem;
   text-transform: capitalize;
 }
 
 h2 {
-  border-bottom: 2px solid var(--color-table-bg);
+  border-bottom: 2px solid var(--color-primary-light);
   padding-bottom: 8px;
   margin-top: 30px;
   font-size: 1.2rem;
   text-transform: uppercase;
 }
 
-h3 span {
-  font-size: 0.8rem;
-  text-transform: none;
-  margin: 10px 0 0 60px;
+.nobr {
+  white-space: nowrap;
 }
-
 /* -------------------- Logo / Header --------------------------------------- */
 h1.title {
   margin: 0;
+}
+h1.subtitle {
+ font-size: 1.2rem;
 }
 
 h2.title {
   margin: 0 0 10px 0;
   text-transform: none;
   border: none;
+   font-size: 1.0rem;
+}
+h2.title span {
+  font-size: 0.8rem;
+  text-transform: none;
+  margin: 10px 0 0 60px;
 }
 
 .hdr {
@@ -66,6 +72,9 @@ h2.title {
   margin-bottom: 10px;
 }
 
+p.title{
+  font-size: 1.3rem;
+}
 /* -------------------- Layout ---------------------------------------------- */
 .container {
   max-width: 850px;
@@ -74,6 +83,7 @@ h2.title {
   border-radius: 8px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   margin: auto;
+  margin-bottom: 20px;
 }
 
 .container-wrapper {
@@ -82,7 +92,7 @@ h2.title {
   flex-wrap: wrap;
   gap: 10px;
   padding: 10px;
-  margin-bottom: 20px;
+
   justify-content: center;
 }
 
@@ -90,7 +100,64 @@ h2.title {
   text-decoration: none;
   font-weight: bold;
 }
+.data-box {
+    background-color: var(--color-grey-light);
+    border-radius: 8px;
+    border: 1px solid var(--color-grey);
+    border-left: 5px solid var(--color-grey-dark);
+    margin: 20px 0;
+    padding: 10px;
+    display: grid;
+    row-gap: 4px;
+}
 
+.data-box.dt{
+    grid-template-columns: 120px 1fr; /* Links 120px für <dt>, rechts der Rest für <dd> */
+}
+
+.data-box dt {
+  font-weight: 600;
+  margin: 0;
+}
+
+.data-box dd {
+  margin: 0;
+}
+
+.info-box li {
+  background: transparent;
+  border: none;
+  display: list-item;
+  margin-left: 50px;
+  padding: 0px;
+}
+.info-box table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.info-box td {
+  padding: 4px 8px;
+  vertical-align: top;
+  background-color: transparent;
+  font-size: 0.9rem;
+  border: none;
+}
+
+.info-box td:first-child {
+  font-weight: bold;
+  white-space: nowrap;
+  width: 80px;
+  color: #555;
+}
+.upload-box {
+  border: 2px dashed var(--color-primary);
+  padding: 10px;
+  margin-bottom: 20px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  text-align: center;
+}  
 .box {
   display: flex;
   justify-content: center;
@@ -100,6 +167,22 @@ h2.title {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 15px;
+
+}
+
+.grid.three-columns {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.grid.two-columns {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.grid.one-columns {
+  grid-template-columns: repeat(1, 1fr);
+}
+.grid_split { 
+  grid-template-columns: 563px auto;
 }
 
 .field {
@@ -119,6 +202,9 @@ h2.title {
   cursor: pointer;
 }
 
+.text-center { 
+  text-align: center; 
+}
 /* -------------------- Footer ---------------------------------------------- */
 .footer {
   width: 100%;
@@ -139,34 +225,43 @@ caption span,
 /* -------------------- Formular -------------------------------------------- */
 label,
 .label {
+    width: 100%;
   font-size: 0.85rem;
   font-weight: 600;
   color: #3c4043;
   margin-bottom: 5px;
 }
-
 select,
 input {
   width: 100%;
   padding: 10px;
   box-sizing: border-box;
-  border: 1px solid #ccc;
+  border: 1px solid var(--color-grey-dark);
 }
 
+input[type="radio"]{
+    width: auto;
+    cursor: pointer;
+}
+input[type="radio"] + label {
+    display: inline;
+    font-weight: normal;
+    cursor: pointer;
+}
 /* -------------------- Nachrichten ----------------------------------------- */
 .success-msg {
   color: black;
   text-align: center;
-  background-color: #fac923;
-  font-size: 1.3rem;       /* ← war: font: size 1.3rem (ungültig) */
+  background-color: var(--color-warning);
+  font-size: .3rem;
   font-weight: bold;
   padding: 10px;
   width: 100%;
 }
 
 .warning {
-  background-color: #fff8e1;
-  border: 1px solid #f0c040;
+  background-color: var(--color-warning-light);
+  border: 1px solid var(--color-warning-dark);
   padding: 10px 14px;
   border-radius: 4px;
   margin-bottom: 15px;
@@ -174,33 +269,6 @@ input {
   color: #7a5c00;
 }
 
-.info-box {
-  background-color: #f5f5f5;
-  border-left: 4px solid #003366;
-  padding: 12px 16px;
-  margin: 16px 0;
-  border-radius: 0 4px 4px 0;
-}
-
-.info-box table {
-  border-collapse: collapse;
-  width: 100%;
-}
-
-.info-box td {
-  padding: 4px 8px;
-  vertical-align: top;
-  background-color: transparent;
-  font-size: 0.9rem;
-  border: none;
-}
-
-.info-box td:first-child {
-  font-weight: bold;
-  white-space: nowrap;
-  width: 80px;
-  color: #555;
-}
 
 /* -------------------- Blink ----------------------------------------------- */
 .blink {
@@ -208,6 +276,8 @@ input {
   font-size: 1rem;
   color: #e4881b;
   font-weight: bolder;
+  width: 100%;
+  text-align: center;
 }
 
 @keyframes animation_blink {
@@ -222,7 +292,6 @@ input {
 .tooltip-warning {
   position: relative;
   text-decoration: none;
-  display: inline-block;
 }
 
 .tooltip:after,
@@ -273,12 +342,12 @@ input {
 }
 
 .tooltip:after {
-  background: var(--color-table-bg);
+  background: var(--color-primary-light);
   color: black;
-  border: 1px solid var(--color-table-bg);
+  border: 1px solid var(--color-primary-light);
 }
 .tooltip:before {
-  border-color: var(--color-table-bg) transparent transparent transparent;
+  border-color: var(--color-primary-light) transparent transparent transparent;
 }
 
 .tooltip-warning:after {
@@ -300,6 +369,9 @@ input {
 }
 
 /* -------------------- Buttons --------------------------------------------- */
+button{
+  margin-top: 5px;
+}
 .btn {
   width: 200px;
   padding: 4px 2px;
@@ -308,9 +380,11 @@ input {
   border-radius: 8px;
   font-weight: bold;
   font-size: 0.9rem;
-  display: flex;
+  display: inline-flex;
   justify-content: center;
   align-items: center;
+  text-decoration: none;
+  
 }
 
 .btn:hover {
@@ -320,7 +394,6 @@ input {
 .btn-primary {
   background-color: var(--color-primary);
   color: white;
-  margin: 5px 0;
 }
 
 .btn-primary:hover {
@@ -334,7 +407,6 @@ input {
 
 .btn-warning:hover {
   background-color: var(--color-warning-dark);
-  transform: scale(1.02);
 }
 
 .btn-danger {
@@ -346,8 +418,50 @@ input {
   background-color: var(--color-danger-dark);
 }
 
+.btn-td {
+  background-color: var(--color-primary-dark);
+  color: white;
+  margin: 0px;
+}
+
+.btn-td:hover {
+  background-color: var(--color-primary);
+  transform: scale(1.01);
+}
+
+/* Links als Buttons stylen (erbt von .btn) */
+a.btn {
+  display: inline-flex;
+}
+
+a.btn-primary {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+a.btn-primary:hover {
+  background-color: var(--color-primary-dark);
+}
+
+a.btn-warning {
+  background-color: var(--color-warning);
+  color: black;
+}
+
+a.btn-warning:hover {
+  background-color: var(--color-warning-dark);
+}
+.btn-grey {
+  background-color: var(--color-grey-light);
+  color: black;
+}
+
+.btn-grey:hover {
+  background-color: var(--color-grey);
+}
 /* -------------------- Tabellen -------------------------------------------- */
 caption {
+  font-size: 0.75rem;
   font-weight: bold;
   margin-top: 15px;
   text-align: left;
@@ -358,17 +472,20 @@ table {
 }
 
 th {
-  border: 1px solid #ccc;
-  background-color: var(--color-primary-dark);
+  background-color: var(--color-primary);
   color: white;
   font-size: 0.75rem;
   padding: 4px 6px;
 }
+th .tooltip,
+th .tooltip-danger,
+th .tooltip-warning {
+  display: inline;
+}
 
 td {
-  border: 1px solid #ccc;
-  background-color: var(--color-table-bg);
-  color: #0056b3;
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
   padding: 4px 10px;
   font-size: 0.7rem;
 }
@@ -387,15 +504,15 @@ table.error th {
 }
 
 table.error td {
-  background-color: #ffa099;
+  background-color: var(--color-warning);
 }
 
 tr.even td {
-  background-color: var(--color-table-bg);
+  background-color: var(--color-primary-light);
 }
 
 tr.odd td {
-  background-color: #d8e3ef;
+  background-color: var(--color-primary-light);
 }
 
 /* -------------------- Flash ----------------------------------------------- */
@@ -406,8 +523,10 @@ tr.odd td {
   font-size: 0.75rem;
 }
 
-.flash.error {
+.flash.error, .flash.danger {
   border: 2px dashed var(--color-danger);
+  font-weight: 600;
+  background-color: var(--color-danger-light);
 }
 
 .flash.warning {
@@ -415,11 +534,11 @@ tr.odd td {
 }
 
 .flash.success {
-  border: 1px dashed #cccccc;
+  border: 1px dashed var(--color-grey-dark);
 }
 
 .flash.error p {
-  background-color: #ffa099;
+  background-color:var(--color-danger-light);
   color: black;
   padding: 5px;
 }
@@ -431,17 +550,63 @@ tr.odd td {
 
 .flash h1 {
   font-size: 1.2rem;
-  text-transform: none;   /* ← war: normal (ungültig) */
+  text-transform: none;
 }
-
 /* -------------------- Sonstiges ------------------------------------------- */
 hr {
-  border: 1px solid var(--color-table-bg);
+  border: 1px solid var(--color-primary-light);
   margin: 15px 20px;
 }
 
 .big   { width: 100%; }
 .small { width: 120px; }
 .midi  { width: 240px; }
-
+.height { height: 40px;}
+.low { padding:2px 0 2px 0; font-size: 0.75rem;}
 .hidden { display: none; }
+
+
+
+ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+ul.square {
+  list-style-type:square;
+  
+}
+ul.square li {
+  background: transparent;
+  border: none;
+  display: list-item;
+  margin-left: 50px;
+  padding: 0px;
+}
+
+
+
+
+
+
+a {
+  text-decoration: none;
+  font-weight: bold;
+}
+a.previous {
+  background-color: var(--color-grey-light);
+  text-decoration: none;
+  display: inline-block;
+  padding: 8px 16px;
+  color: black;
+}
+a.next {
+  background-color: var(--color-grey-light);
+  color: black;
+}
+a.previous:hover, a.next:hover {
+  background-color: var(--color-grey);
+}
+.round {
+  border-radius: 50%;
+}

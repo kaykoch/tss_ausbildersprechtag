@@ -1,32 +1,28 @@
 # ------------------------------------------------------------------------------
 # Überprüft durch Claude  Hailku
-# ------------------------------------------------------------------------------
+# ==============================================================================
 
 import logging
 
 from flask import (
     Blueprint,
     abort,
-    current_app,
     flash,
+    make_response,
     redirect,
     render_template,
-    request,
     url_for,
 )
 from flask.typing import ResponseReturnValue
-from sqlalchemy.exc import SQLAlchemyError
-from werkzeug.security import generate_password_hash
 
-from src.extensions import state
-from src.forms import BeraterShowForm, ConfigForm
-from src.models import ConfigSetting
-from src.services.berater_service import _get_berater_liste, delete_berater, get_berater_by_token_or_abort
-from src.services.config_service import load_config, load_defaults
-from src.services.crypto_service import get_encrypted_mail_password
-from src.services.mail_service import send_anmeldung_mail_to_berater
+from src.forms import ConfigForm, LehrkraftDeleteForm, LehrkraftShowForm
+from src.services.config_service import apply_config_form, load_config, load_defaults
+from src.services.lehrkraft_service import delete_lehrkraft, get_lehrkraft_by_token_or_abort, get_lehrkraft_liste
+from src.services.mail_service import send_anmeldung_mail_to_lehrkraft
 from src.utils.auth import requires_auth
-from src.utils.helpers import flash_form_errors
+from src.utils.helpers import commit_config, flash_form_errors
+from src.utils.logging import apply_logging_level_change
+from src.utils.roles import _ALLOWED_ROLES_ADMIN
 
 
 logger = logging.getLogger(__name__)
@@ -38,11 +34,13 @@ admin_bp = Blueprint("admin", __name__)
 
 _TITLE_ADMIN = "Administration - Ausbilderbetriebe WebUntis"
 _TITLE_CONFIG = "Einstellungen - Ausbilderbetriebe WebUntis"
-_TITLE_BERATER = "Anzeige der Lehrkräfte"
+_TITLE_LEHRKRAFT = "Anzeige der Lehrkräfte"
 
-_TEMPLATE_ADMIN = "admin/admin.html"
+_TEMPLATE_ADMIN = "admin/admin_dashboard.html"
 _TEMPLATE_CONFIG = "admin/config.html"
-_TEMPLATE_BERATER = "admin/berater_anzeige.html"
+_TEMPLATE_BERATER = "admin/lehrkraft_anzeigen.html"
+_TEMPLATE_LEHRKRAFT_DELETE = "admin/lehrkraft_loeschen.html"
+
 
 _HASH_PASSWORD_FIELDS: frozenset[str] = frozenset({"admin_password", "tss_password"})
 _SYSTEM_FIELDS: frozenset[str] = frozenset({"csrf_token", "submit"})
@@ -55,151 +53,155 @@ _BERATER_DEFAULT_RESULT = "warning"
 
 # ------------------------------------------------------------------------------
 # Routen
-# ------------------------------------------------------------------------------
+# ==============================================================================
 
 
 @admin_bp.route("/", methods=["GET", "POST"])
-@requires_auth("admin")
+@requires_auth(_ALLOWED_ROLES_ADMIN)
 def route_admin() -> ResponseReturnValue:
-    """Zeigt alle administrativen Aufgaben auf einer Webseite."""
+    """Zeigt alle administrativen Aufgaben auf einer Webseite.
+    Note:
+        Fehlerbehandlung erfolgt in den Services (create_buchung, send_mail_to_bucher).
+        Die Route prüft nur die Kategorie und rendert entsprechend.
+    """
     return render_template(
         _TEMPLATE_ADMIN,
         title=_TITLE_ADMIN,
     )
 
 
-@admin_bp.route("/config.html", methods=["GET", "POST"])
-@requires_auth("admin")
+@admin_bp.route("/config", methods=["GET", "POST"])
+@requires_auth(_ALLOWED_ROLES_ADMIN)
 def route_config() -> ResponseReturnValue:
-    """Zeigt die Webseite zur Eingabe der Konfigurationsdaten an."""
-    cfg = load_config()
+    """Zeigt die Konfigurationsseite an und speichert Änderungen."""
+    # Ohne Konfiguration ist die App nicht lauffähig, daher Abbruch
+    message, category, cfg = load_config()
+    if category != "success":
+        abort(make_response(f"{message}", 400))
 
-    try:
-        form = ConfigForm(obj=cfg)
+    form = ConfigForm(obj=cfg)
 
-        if form.validate_on_submit():
-            _save_config(form, cfg)
-        elif request.method == "POST":
-            flash_form_errors("route_config", form)
+    if form.validate_on_submit():
+        # 1. Formularwerte in das Objekt übernehmen (Rollback erfolgt im Service bei Fehlern)
+        message, category, _ = apply_config_form(form, cfg)
 
-        return render_template(
-            _TEMPLATE_CONFIG,
-            title=_TITLE_CONFIG,
-            form=form,
-        )
+        if category == "success":
+            # 2. Speichern (Rollback erfolgt im Helper bei Fehlern)
+            message, category, _ = commit_config()
 
-    except Exception as e:
-        logger.error("Fehler in route_config: %s", e)
-        abort(500)
+            # 3. Logging-Level sofort anwenden
+            if category == "success":
+                apply_logging_level_change(form)
+
+            # 4. App-Config neu laden. Fehler melden, ohne die Erfolgsmeldung zu überschreiben.
+            defaults_message, defaults_category, _ = load_defaults()
+            if defaults_category != "success":
+                flash(defaults_message, defaults_category)
+
+        flash(message, category)
+
+    return render_template(
+        _TEMPLATE_CONFIG,
+        title=_TITLE_CONFIG,
+        form=form,
+    )
 
 
-@admin_bp.route("/berater.html", methods=["GET", "POST"])
-@requires_auth("admin")
-def route_berateranzeige() -> ResponseReturnValue:
-    """Zeigt die Übersicht aller Lehrkräfte an und verarbeitet Aktionen."""
-    form = BeraterShowForm()
+# ----- Lehrkraft --------------------------------------------------------------
+@admin_bp.route("/lehrkraft", methods=["GET", "POST"])
+@requires_auth(_ALLOWED_ROLES_ADMIN)
+def route_lehrkraft_anzeigen() -> ResponseReturnValue:
+    """Zeigt die Übersicht aller Lehrkräfte an und verarbeitet Aktionen.
+
+    Note:
+        Fehlerbehandlung erfolgt in den Services (create_buchung, send_mail_to_bucher).
+        Die Route prüft nur die Kategorie und rendert entsprechend.
+    """
+
+    form = LehrkraftShowForm()
 
     if form.validate_on_submit() and form.action.data in _ALLOWED_BERATER_ACTIONS:
-        response = _handle_berater_action(form)
+        response = _handle_lehrkraft_action(form)
         if response is not None:
             return response
+    elif form.is_submitted():
+        flash_form_errors(form)
 
     flash(_BERATER_DEFAULT_INFO, _BERATER_DEFAULT_RESULT)
-    return _render_berater_liste(form)
+    return _render_lehrkraft_liste(form)
+
+
+@admin_bp.route("/lehrkraft/loeschen/<string:token>", methods=["GET", "POST"])
+@requires_auth(_ALLOWED_ROLES_ADMIN)
+def route_lehrkraft_loeschen(token: str) -> ResponseReturnValue:
+    """Zeigt die Löschbestätigung und löscht ein Thema nach POST.
+
+    Note:
+        Fehlerbehandlung erfolgt in den Services (create_buchung, send_mail_to_bucher).
+        Die Route prüft nur die Kategorie und rendert entsprechend.
+    """
+    lehrkraft = get_lehrkraft_by_token_or_abort(token, to_abort=True)
+
+    form = LehrkraftDeleteForm()
+    # Token in die Form eintragen
+    if not form.is_submitted():
+        form.lehrkraft_token.data = token
+
+    if form.validate_on_submit():
+        token = lehrkraft.lehrkraft_token
+        message, category = delete_lehrkraft(form.lehrkraft_token.data)
+        flash(message, category)
+        return redirect(url_for("admin.route_lehrkraft_anzeigen"))
+
+    elif form.is_submitted():
+        flash_form_errors(form)
+
+    return render_template(
+        _TEMPLATE_LEHRKRAFT_DELETE,
+        title=_TITLE_LEHRKRAFT,
+        form=form,
+        lehrkraft=lehrkraft,
+    )
 
 
 # ------------------------------------------------------------------------------
-# Hilfsfunktionen – Config
-# ------------------------------------------------------------------------------
+# Hilfsfunktionen – Lehrkraft
+# ==============================================================================
 
 
-def _save_config(form: ConfigForm, cfg: ConfigSetting | None) -> ConfigSetting:
-    """Speichert die Konfiguration aus dem Formular in die Datenbank."""
-    if cfg is None:
-        cfg = ConfigSetting()
-        state.db.session.add(cfg)
-
-    _apply_non_password_fields(form, cfg)
-    _apply_password_fields(form, cfg)
-
-    try:
-        # neue Daten speichern
-        state.db.session.commit()
-        # geänderte Daten wieder neu einlesen
-        load_defaults()
-        flash("Konfiguration erfolgreich gespeichert.", "success")
-    except SQLAlchemyError:
-        state.db.session.rollback()
-        current_app.logger.exception("DB-Fehler beim Speichern der Config")
-        flash("Datenbankfehler beim Speichern der Konfiguration.", "error")
-
-    return cfg
-
-
-def _apply_non_password_fields(form: ConfigForm, cfg: ConfigSetting) -> None:
-    """Schreibt alle Nicht-Passwort- und Nicht-Systemfelder in das Config-Objekt."""
-    for fieldname, value in form.data.items():
-        if fieldname not in _EXCLUDED_FIELDS:
-            setattr(cfg, fieldname, value)
-
-
-def _apply_password_fields(form: ConfigForm, cfg: ConfigSetting) -> None:
-    """Verarbeitet Passwörter: Admin/TSS werden gehasht, Mail wird verschlüsselt."""
-
-    # 1. Admin & TSS Passwörter HASHTEN (One-Way)
-    for field in _HASH_PASSWORD_FIELDS:
-        if form[field].data:
-            hashed_password = generate_password_hash(form[field].data)
-            setattr(cfg, field, hashed_password)
-
-    # 2. Mail-Passwort VERSCHLÜSSELN (Two-Way)
-    if form.mail_password.data:
-        encrypted = get_encrypted_mail_password(form.mail_password.data)
-        if encrypted is None:
-            logger.error("E-Mail-Passwort konnte nicht verschlüsselt werden.")
-            flash("Fehler: Mail-Passwort konnte nicht verschlüsselt werden.", "error")
-        else:
-            cfg.mail_password = encrypted
-
-
-# ------------------------------------------------------------------------------
-# Hilfsfunktionen – Berater
-# ------------------------------------------------------------------------------
-
-
-def _handle_berater_action(form: BeraterShowForm) -> ResponseReturnValue | None:
-    """Verarbeitet die gewählte Aktion auf einen Berater.
+def _handle_lehrkraft_action(form: LehrkraftShowForm) -> ResponseReturnValue | None:
+    """Verarbeitet die gewählte Aktion auf einen Lehrkraft.
 
     Returns:
         ResponseReturnValue | None: Redirect bei update/show, None bei send/delete.
     """
-    berater = get_berater_by_token_or_abort(form.token.data)
+    lehrkraft = get_lehrkraft_by_token_or_abort(form.token.data)
+
+    print(lehrkraft)
 
     match form.action.data:
         case "update":
-            return redirect(url_for("tss.route_lehrkraftanmeldung", token=berater.token))
+            return redirect(url_for("lehrkraft.route_lehrkraft_bearbeiten", token=lehrkraft.lehrkraft_token))
         case "show":
-            return redirect(url_for("tss.route_buchungenanzeige", token=berater.token))
-        case "send":
-            info, result = send_anmeldung_mail_to_berater(berater)
+            return redirect(url_for("lehrkraft.route_buchungen_anzeigen", token=lehrkraft.lehrkraft_token))
         case "delete":
-            info, result = delete_berater(berater)
+            return redirect(url_for("admin.route_lehrkraft_loeschen", token=lehrkraft.lehrkraft_token))
+        case "send":
+            message, category = send_anmeldung_mail_to_lehrkraft(lehrkraft)
+        case _:
+            message = category = None
 
-    flash(info, result)
+    flash(message, category)
     return None
 
 
-def _render_berater_liste(form: BeraterShowForm) -> ResponseReturnValue:
-    """Lädt alle Berater aus der DB und rendert die Übersichtsseite."""
-    try:
-        berater_liste = _get_berater_liste()
-        return render_template(
-            _TEMPLATE_BERATER,
-            title=_TITLE_BERATER,
-            berater_liste=berater_liste,
-            form=form,
-        )
+def _render_lehrkraft_liste(form: LehrkraftShowForm) -> ResponseReturnValue:
+    """Lädt alle Lehrkraft aus der DB und rendert die Übersichtsseite."""
+    lehrkraft_liste = get_lehrkraft_liste()
 
-    except Exception as e:
-        logger.error("Fehler in route_berateranzeige: %s", e)
-        abort(500)
+    return render_template(
+        _TEMPLATE_BERATER,
+        title=_TITLE_LEHRKRAFT,
+        lehrkraft_liste=lehrkraft_liste,
+        form=form,
+    )

@@ -1,0 +1,23 @@
+{% extends "base.html" %} 
+{% block content %}
+
+<h2 class="title">Dashboard:<br>
+    <span>{{lehrkraft.full_name}} ({{lehrkraft.lehrkraft_raum}})</span>
+</h2>
+
+<div class="container-wrapper">
+    <a href="{{ url_for('lehrkraft.route_lehrkraft_bearbeiten', token=lehrkraft.lehrkraft_token ) }}" 
+        class="btn btn-primary midi tooltip height"
+        data-tooltip="Anzeigen und Bearbeiten der persönlichen Daten">
+        Einstellungen
+    </a>
+    <a href="{{ url_for('lehrkraft.route_buchungen_anzeigen', token=lehrkraft.lehrkraft_token ) }}" 
+        class="btn btn-primary midi tooltip height"
+        data-tooltip="Anzeigen und Download der persönlichen Buchungen">
+        Buchungen
+    </a>
+</div> 
+
+<hr>
+
+{% endblock %}

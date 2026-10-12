@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2 class="title">
+    <a href="{{ url_for('admin.route_lehrkraft_anzeigen') }}" class="previous round">&#8249; </a>
+    Lehrkraft löschen<br>
+    <span>{{lehrkraft.full_name}} ({{lehrkraft.lehrkraft_raum}}</span>
+</h2>
+
+<div class="flash danger">
+    Möchten Sie die Lehrkraft  „{{ lehrkraft.full_name }}“ wirkdtch löschen?<br>
+    Diese Aktion kann nicht rückgängig gemacht werden.
+</div>
+
+<dl class="data-box dt">
+  <dt>Name:</dt><dd> {{ lehrkraft.full_name }}</dd>
+  <dt>Mail:</dt><dd> {{ lehrkraft.lehrkraft_mail }}</dd>
+  <dt>Raum:</dt><dd> {{ lehrkraft.lehrkraft_raum }}</dd>
+</dl>
+<hr>
+
+<form method="post">
+  {{ form.hidden_tag() }}
+  {{ form.lehrkraft_token }}
+
+  <div class="container-wrapper">
+    <div>
+      {{ form.submit_lehrkraft_delete(class="btn btn-danger midi") }}
+    </div>
+    <div>
+      <button type="button"  oncdtck="history.back()"
+        class="btn btn-grey midi">
+        Abbrechen
+      </button>
+    </div>
+  </div>
+</form>
+
+{% endblock %}

@@ -1,0 +1,65 @@
+<!-- Überprüft durch Claude  Hailku -->
+ 
+{% extends "base.html" %}
+{% block content %}
+
+{% if is_create %}
+<h2 class="title">Lehrkraft erstellen</h2>
+{% else %}
+<h2 class="title">
+    <a href="{{ url_for('lehrkraft.route_lehrkraft', token=lehrkraft.lehrkraft_token) }}" 
+    class="previous round" data-tooltip="Zurück zur Lehrkraftsübersicht">
+    &#8249;
+    </a>
+    Lehrkraft bearbeiten<br>
+    <span>{{lehrkraft.full_name}} ({{lehrkraft.lehrkraft_raum}})</span>
+</h2>
+
+{% endif %}
+
+    <form id="globalLehrkraftForm" method="POST">
+        {{ form.csrf_token }}
+        {{ form.action }}
+        {{ form.lehrkraft_token(id="lehrkraft_token") }}
+        <!-- ##########################################-->
+        <div class="grid">
+            <div class="field">
+                {{ form.lehrkraft_vorname.label }}
+                {{ form.lehrkraft_vorname(class="form-control") }}
+            </div>
+            <div class="field">
+                {{ form.lehrkraft_nachname.label }}
+                {{ form.lehrkraft_nachname(class="form-control") }}
+            </div>
+        </div>
+        <!-- ##########################################-->
+        <div class="grid">
+            <div class="field">
+                {{ form.lehrkraft_mail.label }}
+                {{ form.lehrkraft_mail(class="form-control") }}
+            </div>
+
+            <div class="field">
+                {{ form.lehrkraft_dauer.label }}
+                {{ form.lehrkraft_dauer(class="form-control") }}
+            </div>
+        </div>
+        <!-- ##########################################-->
+        <div class="grid">
+            <div class="field">
+                {{ form.lehrkraft_will_mail.label }}
+                {{ form.lehrkraft_will_mail(class="form-control") }}
+            </div>
+
+            <div class="field">
+                {{ form.lehrkraft_raum.label }}
+                {{ form.lehrkraft_raum(class="form-control") }}
+            </div>
+
+        </div>
+        <div class="field">
+            {{ form.submit_lehrkraft(class="btn btn-primary big") }}
+        </div>
+    </form>
+
+{% endblock %}
